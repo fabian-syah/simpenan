@@ -8,7 +8,8 @@ import {
   Play, Pause, Volume2, Volume1, VolumeX, Maximize, Minimize,
   RotateCcw, RotateCw, Download, ExternalLink, AlertTriangle,
   RefreshCw, Check, SlidersHorizontal, Captions, Plus,
-  PictureInPicture2, Moon, Timer, Type, Palette
+  PictureInPicture2, Moon, Timer, Type, Palette,
+  Minimize2, Maximize2, X
 } from 'lucide-react';
 import { formatBytes } from '../../types';
 import { getDownloadUrl } from '../../lib/api';
@@ -30,6 +31,8 @@ interface VideoPlayerProps {
   currentResolution?: string;
   onSelectResolution?: (resolution: string, url: string) => void;
   onClose?: () => void;
+  isMinimized?: boolean;
+  onToggleMinimize?: (minimized: boolean) => void;
 }
 
 function formatTime(seconds: number): string {
@@ -226,11 +229,15 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   variants = [],
   currentResolution = '1080p',
   onSelectResolution,
+  onClose,
+  isMinimized = false,
+  onToggleMinimize,
 }: VideoPlayerProps) {
   // Dual-Video Seamless Hot-Swap Architecture (YouTube-style instant switching)
   const videoRef0 = useRef<HTMLVideoElement>(null);
   const videoRef1 = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isMiniHovered, setIsMiniHovered] = useState(false);
 
   const isMkv = useMemo(() => {
     const ext = fileName.split('.').pop()?.toLowerCase() || '';
@@ -513,8 +520,13 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   useEffect(() => {
     const v0 = videoRef0.current;
     const v1 = videoRef1.current;
-    const onEnter = () => setIsPipActive(true);
-    const onLeave = () => setIsPipActive(false);
+    const onEnter = () => {
+      setIsPipActive(true);
+      onToggleMinimize?.(true);
+    };
+    const onLeave = () => {
+      setIsPipActive(false);
+    };
 
     v0?.addEventListener('enterpictureinpicture', onEnter);
     v0?.addEventListener('leavepictureinpicture', onLeave);
@@ -527,7 +539,29 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       v1?.removeEventListener('enterpictureinpicture', onEnter);
       v1?.removeEventListener('leavepictureinpicture', onLeave);
     };
-  }, []);
+  }, [onToggleMinimize]);
+
+  // Miniplayer Expand and Close Handlers
+  const handleExpand = useCallback(async () => {
+    if (document.pictureInPictureElement) {
+      try {
+        await document.exitPictureInPicture();
+      } catch {}
+    }
+    onToggleMinimize?.(false);
+  }, [onToggleMinimize]);
+
+  const handleCloseVideo = useCallback(async () => {
+    if (document.pictureInPictureElement) {
+      try {
+        await document.exitPictureInPicture();
+      } catch {}
+    }
+    const video = getActiveVideo();
+    if (video) video.pause();
+    setIsPlaying(false);
+    onClose?.();
+  }, [getActiveVideo, onClose]);
 
   // Sleep Timer Expiration Handler
   const handleSleepTimerExpired = useCallback(() => {
@@ -626,6 +660,9 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       } else if (e.key === 'p' && isPipSupported) {
         e.preventDefault();
         togglePip();
+      } else if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        onToggleMinimize?.(!isMinimized);
       } else if (e.key === '[') {
         e.preventDefault();
         adjustSubDelay(-0.5);
@@ -637,7 +674,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlay, skip, volume, toggleMute, toggleFullscreen, getActiveVideo, togglePip, adjustSubDelay, isPipSupported]);
+  }, [togglePlay, skip, volume, toggleMute, toggleFullscreen, getActiveVideo, togglePip, adjustSubDelay, isPipSupported, isMinimized, onToggleMinimize]);
 
   // Track video events for both slots
   const handleVideoPlay = (slot: 0 | 1) => {
@@ -1039,23 +1076,43 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const bufferPercent = duration > 0 ? (bufferedEnd / duration) * 100 : 0;
 
-  const containerStyle = useMemo<React.CSSProperties>(() => ({
-    position: 'relative',
-    width: '100%',
-    maxWidth: '1200px',
-    maxHeight: '85vh',
-    aspectRatio: '16/9',
-    backgroundColor: '#000000',
-    borderRadius: '16px',
-    overflow: 'hidden',
-    boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    ['--sub-font-size' as any]: subFontSize === 'small' ? '14px' : subFontSize === 'large' ? '23px' : '18px',
-    ['--sub-color' as any]: subColor,
-    ['--sub-bg' as any]: subBg === 'none' ? 'transparent' : subBg === 'solid' ? '#000000' : 'rgba(0, 0, 0, 0.75)',
-  }), [subFontSize, subColor, subBg]);
+  const containerStyle = useMemo<React.CSSProperties>(() => {
+    if (isMinimized) {
+      return {
+        position: 'relative',
+        width: '100%',
+        aspectRatio: '16/9',
+        backgroundColor: '#000000',
+        borderRadius: '16px',
+        overflow: 'hidden',
+        boxShadow: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        userSelect: 'none',
+        ['--sub-font-size' as any]: '11px',
+        ['--sub-color' as any]: subColor,
+        ['--sub-bg' as any]: subBg === 'none' ? 'transparent' : subBg === 'solid' ? '#000000' : 'rgba(0, 0, 0, 0.75)',
+      };
+    }
+    return {
+      position: 'relative',
+      width: '100%',
+      maxWidth: '1200px',
+      maxHeight: '85vh',
+      aspectRatio: '16/9',
+      backgroundColor: '#000000',
+      borderRadius: '16px',
+      overflow: 'hidden',
+      boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      ['--sub-font-size' as any]: subFontSize === 'small' ? '14px' : subFontSize === 'large' ? '23px' : '18px',
+      ['--sub-color' as any]: subColor,
+      ['--sub-bg' as any]: subBg === 'none' ? 'transparent' : subBg === 'solid' ? '#000000' : 'rgba(0, 0, 0, 0.75)',
+    };
+  }, [isMinimized, subFontSize, subColor, subBg]);
 
   const slot0Style = useMemo<React.CSSProperties>(() => ({
     position: 'absolute',
@@ -1088,13 +1145,23 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       ref={containerRef}
       className="cv-video-container"
       onMouseMove={handleMouseMove}
+      onMouseEnter={() => {
+        if (isMinimized) setIsMiniHovered(true);
+      }}
       onMouseLeave={() => {
-        if (isPlaying) setShowControls(false);
+        if (isMinimized) {
+          setIsMiniHovered(false);
+        } else if (isPlaying) {
+          setShowControls(false);
+        }
+      }}
+      onDoubleClick={() => {
+        if (isMinimized) handleExpand();
       }}
       style={containerStyle}
     >
-      {/* Auto-Resume Playback Toast Notification */}
-      {resumeToast && (
+      {/* Auto-Resume Playback Toast Notification (Only in full player) */}
+      {!isMinimized && resumeToast && (
         <div
           className="cv-resume-toast"
           style={{
@@ -1291,6 +1358,384 @@ export const VideoPlayer = React.memo(function VideoPlayer({
               />
             )}
           </video>
+        </>
+      )}
+
+      {/* 1. YouTube-Style Picture-in-Picture Mini Card (When in Native PiP & Minimized) */}
+      {isMinimized && isPipActive && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 30,
+            background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.98))',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            padding: '12px 14px',
+            color: '#f8fafc',
+            borderRadius: 16,
+            boxShadow: 'inset 0 0 0 1px rgba(56, 189, 248, 0.3)',
+          }}
+        >
+          {/* Top Row: File Name & Close Button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+              <div
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  background: '#38bdf8',
+                  boxShadow: '0 0 8px #38bdf8',
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#e2e8f0',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+                title={fileName}
+              >
+                {fileName}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleCloseVideo}
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: 'none',
+                color: '#cbd5e1',
+                borderRadius: '50%',
+                width: 22,
+                height: 22,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                flexShrink: 0,
+                transition: 'background 0.2s',
+              }}
+              title="Tutup Video (Stop)"
+            >
+              <X size={13} />
+            </button>
+          </div>
+
+          {/* Center Row: PiP Status Indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '4px 0' }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: 'rgba(56, 189, 248, 0.15)',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#38bdf8',
+                boxShadow: '0 0 15px rgba(56, 189, 248, 0.2)',
+              }}
+            >
+              <PictureInPicture2 size={19} />
+            </div>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#38bdf8' }}>
+                Picture-in-Picture Aktif
+              </div>
+              <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Row: Quick Controls & Expand Button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                type="button"
+                onClick={togglePlay}
+                style={{
+                  background: '#38bdf8',
+                  color: '#0f172a',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: 28,
+                  height: 28,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 10px rgba(56, 189, 248, 0.4)',
+                }}
+                title={isPlaying ? 'Jeda' : 'Putar'}
+              >
+                {isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => skip(-10)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#cbd5e1',
+                  cursor: 'pointer',
+                  padding: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="Mundur 10s"
+              >
+                <RotateCcw size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => skip(10)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#cbd5e1',
+                  cursor: 'pointer',
+                  padding: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="Maju 10s"
+              >
+                <RotateCw size={14} />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleExpand}
+              style={{
+                background: 'rgba(56, 189, 248, 0.18)',
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                color: '#38bdf8',
+                borderRadius: 8,
+                padding: '4px 10px',
+                fontSize: 11.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                transition: 'background 0.2s',
+              }}
+              title="Kembali ke Ukuran Penuh (i)"
+            >
+              <Maximize2 size={12} />
+              <span>Perbesar</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 2. YouTube-Style In-App Miniplayer Overlay (When Minimized & NOT in Native PiP) */}
+      {isMinimized && !isPipActive && (
+        <>
+          {/* Always-visible Slim Bottom Progress Bar */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 3,
+              background: 'rgba(255, 255, 255, 0.2)',
+              zIndex: 22,
+              pointerEvents: 'none',
+            }}
+          >
+            <div
+              style={{
+                width: `${progressPercent}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #0284c7, #38bdf8)',
+                boxShadow: '0 0 6px #38bdf8',
+              }}
+            />
+          </div>
+
+          {/* Hover Controls Overlay */}
+          {isMiniHovered && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 25,
+                background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.88) 100%)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                padding: '10px 12px',
+                color: '#ffffff',
+                animation: 'cvFadeInUp 0.15s ease',
+              }}
+            >
+              {/* Top Row: File Name & Close Button */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: '#f8fafc',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    maxWidth: '85%',
+                  }}
+                  title={fileName}
+                >
+                  {fileName}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCloseVideo();
+                  }}
+                  style={{
+                    background: 'rgba(0,0,0,0.6)',
+                    border: 'none',
+                    color: '#cbd5e1',
+                    borderRadius: '50%',
+                    width: 22,
+                    height: 22,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                  title="Tutup (Esc)"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+
+              {/* Center Controls: Rewind, Play/Pause, Forward */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    skip(-10);
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    padding: 4,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  title="Mundur 10s"
+                >
+                  <RotateCcw size={17} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePlay();
+                  }}
+                  style={{
+                    background: 'rgba(56, 189, 248, 0.95)',
+                    border: 'none',
+                    color: '#0f172a',
+                    borderRadius: '50%',
+                    width: 36,
+                    height: 36,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 15px rgba(56, 189, 248, 0.5)',
+                  }}
+                  title={isPlaying ? 'Jeda (Space)' : 'Putar (Space)'}
+                >
+                  {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    skip(10);
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    padding: 4,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  title="Maju 10s"
+                >
+                  <RotateCw size={17} />
+                </button>
+              </div>
+
+              {/* Bottom Row: Timestamps & Expand/PiP Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 2 }}>
+                <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 500 }}>
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {isPipSupported && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePip();
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#e2e8f0',
+                        cursor: 'pointer',
+                        padding: 3,
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                      title="Picture-in-Picture (p)"
+                    >
+                      <PictureInPicture2 size={15} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleExpand();
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#e2e8f0',
+                      cursor: 'pointer',
+                      padding: 3,
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                    title="Perbesar Layar Penuh (i)"
+                  >
+                    <Maximize2 size={15} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -1527,7 +1972,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       )}
 
       {/* Sleek Custom Cloud Controls */}
-      {!hasError && (
+      {!hasError && !isMinimized && (
         <div
           style={{
             position: 'absolute',
@@ -2536,6 +2981,16 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                   <PictureInPicture2 size={17} />
                 </button>
               )}
+
+              {/* Miniplayer (i) */}
+              <button
+                type="button"
+                onClick={() => onToggleMinimize?.(true)}
+                style={controlBtnStyle}
+                title="Miniplayer (i)"
+              >
+                <Minimize2 size={17} />
+              </button>
 
               {/* Fullscreen */}
               <button

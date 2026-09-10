@@ -102,19 +102,32 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
   const [scale, setScale] = useState(1);
   const [rotation, setRotation] = useState(0);
 
+  // Video Miniplayer & PiP state
+  const [isMinimized, setIsMinimized] = useState(false);
+
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (isMinimized) {
+          setIsMinimized(false);
+        } else {
+          onClose();
+        }
+      }
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [onClose]);
+  }, [onClose, isMinimized]);
 
   return (
     <div
-      className="cv-modal-overlay"
-      onClick={onClose}
-      style={{ zIndex: 9999, background: 'rgba(0,0,0,0.92)' }}
+      className={isMinimized ? "cv-modal-overlay cv-minimized" : "cv-modal-overlay"}
+      onClick={isMinimized ? undefined : onClose}
+      style={{
+        zIndex: 9999,
+        background: isMinimized ? 'transparent' : 'rgba(0,0,0,0.92)',
+        pointerEvents: isMinimized ? 'none' : 'auto',
+      }}
     >
       <div
         className="cv-modal-content"
@@ -129,80 +142,88 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
+          pointerEvents: isMinimized ? 'none' : 'auto',
         }}
       >
-        {/* Top Header */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '16px 24px',
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.85), transparent)',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 30,
-          }}
-        >
-          <div style={{ color: 'white', fontWeight: 600, fontSize: 15, maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {file.name}
+        {/* Top Header - Hidden when minimized in Miniplayer / PiP */}
+        {!isMinimized && (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '16px 24px',
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.85), transparent)',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 30,
+            }}
+          >
+            <div style={{ color: 'white', fontWeight: 600, fontSize: 15, maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {file.name}
+            </div>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+              <a
+                href={isVideo ? activeUrl : getDownloadUrl(file.id)}
+                download={file.name}
+                style={{ color: '#cbd5e1', transition: 'color 0.2s', display: 'flex', alignItems: 'center' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#38bdf8')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = '#cbd5e1')}
+                title="Download file"
+              >
+                <Download size={22} />
+              </a>
+              <a
+                href={isVideo ? activeUrl : getDownloadUrl(file.id)}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: '#cbd5e1', transition: 'color 0.2s', display: 'flex', alignItems: 'center' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#38bdf8')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = '#cbd5e1')}
+                title="Open in new tab / VLC"
+              >
+                <ExternalLink size={22} />
+              </a>
+              <button
+                onClick={onClose}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#cbd5e1',
+                  cursor: 'pointer',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  transition: 'color 0.2s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = '#cbd5e1')}
+                title="Close (Esc)"
+              >
+                <X size={24} />
+              </button>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <a
-              href={isVideo ? activeUrl : getDownloadUrl(file.id)}
-              download={file.name}
-              style={{ color: '#cbd5e1', transition: 'color 0.2s', display: 'flex', alignItems: 'center' }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#38bdf8')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = '#cbd5e1')}
-              title="Download file"
-            >
-              <Download size={22} />
-            </a>
-            <a
-              href={isVideo ? activeUrl : getDownloadUrl(file.id)}
-              target="_blank"
-              rel="noreferrer"
-              style={{ color: '#cbd5e1', transition: 'color 0.2s', display: 'flex', alignItems: 'center' }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#38bdf8')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = '#cbd5e1')}
-              title="Open in new tab / VLC"
-            >
-              <ExternalLink size={22} />
-            </a>
-            <button
-              onClick={onClose}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#cbd5e1',
-                cursor: 'pointer',
-                padding: 0,
-                display: 'flex',
-                alignItems: 'center',
-                transition: 'color 0.2s',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#ffffff')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = '#cbd5e1')}
-              title="Close (Esc)"
-            >
-              <X size={24} />
-            </button>
-          </div>
-        </div>
+        )}
 
         {/* Content Area */}
         <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: isVideo ? '60px 20px 20px' : '0',
-            overflow: 'hidden',
-            position: 'relative',
-          }}
+          className={isMinimized ? "cv-video-minimized-card" : undefined}
+          style={
+            isMinimized
+              ? undefined
+              : {
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: isVideo ? '60px 20px 20px' : '0',
+                  overflow: 'hidden',
+                  position: 'relative',
+                }
+          }
         >
           {loading && !isVideo && (
             <div
@@ -222,6 +243,8 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
               currentResolution={activeResolution}
               onSelectResolution={handleSelectResolution}
               onClose={onClose}
+              isMinimized={isMinimized}
+              onToggleMinimize={setIsMinimized}
             />
           ) : isPdf ? (
             <div style={{ width: '92%', maxWidth: '1100px', height: '85vh', borderRadius: 16, overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.15)' }}>

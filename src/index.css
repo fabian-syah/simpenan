@@ -1718,3 +1718,48 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
   -webkit-backdrop-filter: blur(16px);
   animation: cvSleepFadeIn 0.3s ease forwards;
 }
+
+/* YouTube-Style Miniplayer & PiP Support */
+.cv-modal-overlay.cv-minimized {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  pointer-events: none !important;
+  z-index: 9999 !important;
+  animation: none !important;
+}
+
+.cv-modal-overlay.cv-minimized .cv-modal-content {
+  pointer-events: none !important;
+}
+
+.cv-video-minimized-card {
+  pointer-events: auto !important;
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 360px;
+  max-width: calc(100vw - 48px);
+  z-index: 10000;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(56, 189, 248, 0.35);
+  animation: cvMiniEnter 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cv-video-minimized-card:hover {
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9), 0 0 0 1.5px rgba(56, 189, 248, 0.6);
+}
+
+@keyframes cvMiniEnter {
+  from {
+    transform: translateY(24px) scale(0.92);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
