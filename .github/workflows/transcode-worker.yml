@@ -28,6 +28,13 @@ jobs:
       - name: Install Dependencies
         run: npm ci || npm install
 
+      - name: Write .env from ENV_FILE secret
+        if: ${{ secrets.ENV_FILE != '' }}
+        run: |
+          cat << 'EOF' > .env
+          ${{ secrets.ENV_FILE }}
+          EOF
+
       - name: Run Transcoder Batch
         env:
           SUPA_URL: ${{ secrets.SUPA_URL }}
@@ -48,4 +55,4 @@ jobs:
           MEDIAFIRE_EMAIL: ${{ secrets.MEDIAFIRE_EMAIL }}
           MEDIAFIRE_PASSWORD: ${{ secrets.MEDIAFIRE_PASSWORD }}
           MEDIAFIRE_APP_ID: ${{ secrets.MEDIAFIRE_APP_ID }}
-        run: npx tsx scripts/worker.ts --once
+        run: npx tsx --env-file=.env scripts/worker.ts --once
