@@ -29,30 +29,10 @@ jobs:
         run: npm ci || npm install
 
       - name: Write .env from ENV_FILE secret
-        if: env.ENV_CONTENT != ''
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE }}
         run: |
           printf "%s\n" "$ENV_CONTENT" > .env
 
       - name: Run Transcoder Batch
-        env:
-          SUPA_URL: ${{ secrets.SUPA_URL }}
-          SUPA_KEY: ${{ secrets.SUPA_KEY }}
-          SUPA_BUCKET: ${{ secrets.SUPA_BUCKET }}
-          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
-          B2_APP_KEY: ${{ secrets.B2_APP_KEY }}
-          B2_BUCKET: ${{ secrets.B2_BUCKET }}
-          B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
-          B2_REGION: ${{ secrets.B2_REGION }}
-          FILEBASE_KEY: ${{ secrets.FILEBASE_KEY }}
-          FILEBASE_SECRET: ${{ secrets.FILEBASE_SECRET }}
-          FILEBASE_BUCKET: ${{ secrets.FILEBASE_BUCKET }}
-          FILEBASE_ENDPOINT: ${{ secrets.FILEBASE_ENDPOINT }}
-          FILEBASE_REGION: ${{ secrets.FILEBASE_REGION }}
-          MEGA_EMAIL: ${{ secrets.MEGA_EMAIL }}
-          MEGA_PASSWORD: ${{ secrets.MEGA_PASSWORD }}
-          MEDIAFIRE_EMAIL: ${{ secrets.MEDIAFIRE_EMAIL }}
-          MEDIAFIRE_PASSWORD: ${{ secrets.MEDIAFIRE_PASSWORD }}
-          MEDIAFIRE_APP_ID: ${{ secrets.MEDIAFIRE_APP_ID }}
         run: npx tsx --env-file=.env scripts/worker.ts --once
