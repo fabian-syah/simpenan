@@ -209,17 +209,10 @@ async function uploadVariantFile(
   console.log(`[Upload] Uploading ${resolution} variant (${formatBytes(sizeBytes)})...`);
 
   // Choose appropriate provider:
-  // For transcoded variants, Backblaze B2 provides fast streaming, high bandwidth, and instant upload speeds.
-  let targetProvider = preferredProviderId;
-  if (targetProvider === 'filebase' && sizeBytes > 25 * 1024 * 1024) {
+  // For transcoded variants, prioritize Filebase (unmetered download bandwidth) over Backblaze (which has daily bandwidth caps)
+  let targetProvider = 'filebase';
+  if (!s3Clients['filebase']) {
     targetProvider = s3Clients['backblaze'] ? 'backblaze' : 'supabase';
-  }
-  if (targetProvider === 'mega') {
-    if (s3Clients['backblaze']) {
-      targetProvider = 'backblaze';
-    } else if (sizeBytes <= 50 * 1024 * 1024) {
-      targetProvider = 'supabase';
-    }
   }
 
   if (targetProvider === 'mega') {
@@ -358,12 +351,14 @@ async function processVideo(file: any): Promise<void> {
     const parentPath = `.variants/${file.id}`;
     const { data: existingVariants } = await supabase
       .from('files')
-      .select('name, size_bytes')
+      .select('name, size_bytes, provider_id')
       .eq('parent_path', parentPath)
       .eq('upload_status', 'complete')
       .gt('size_bytes', 100);
 
-    const existingNames = new Set((existingVariants || []).map((v: any) => v.name.toLowerCase()));
+    // Filter out variants on Backblaze since B2 bandwidth cap prevents playback
+    const validVariants = (existingVariants || []).filter((v: any) => v.provider_id !== 'backblaze');
+    const existingNames = new Set(validVariants.map((v: any) => v.name.toLowerCase()));
 
     // Filter presets that still need to be generated
     const neededPresets = RESOLUTION_PRESETS.filter((p) => {
@@ -602,16 +597,17 @@ async function scanAndProcessPendingVideos(): Promise<void> {
       const parentPath = `.variants/${video.id}`;
       const { data: variants } = await supabase
         .from('files')
-        .select('name')
+        .select('name, provider_id')
         .eq('parent_path', parentPath)
         .eq('upload_status', 'complete')
         .gt('size_bytes', 100);
 
-      const existingNames = new Set((variants || []).map((v: any) => v.name.toLowerCase()));
+      const validVariants = (variants || []).filter((v: any) => v.provider_id !== 'backblaze');
+      const existingNames = new Set(validVariants.map((v: any) => v.name.toLowerCase()));
       const hasAllPresets = RESOLUTION_PRESETS.every((p) => {
         return existingNames.has(`${p.label}.mp4`.toLowerCase()) || existingNames.has(`${p.label}`.toLowerCase());
       });
-      const hasThumb = existingNames.has('thumb.jpg');
+      const hasThumb = (variants || []).some((v: any) => v.name.toLowerCase() === 'thumb.jpg');
 
       if ((!hasAllPresets || !hasThumb) && !currentlyProcessing.has(video.id)) {
         await processVideo(video);
@@ -629,6 +625,23 @@ async function startWorker(): Promise<void> {
   console.log(`  Target Resolutions: 720p, 480p, 360p (Universal MP4)    `);
   console.log(`  Monitoring Supabase Database & Realtime Channels...      `);
   console.log(`============================================================\n`);
+
+  const specificFileId = process.argv.find((a) => a.startsWith('--file-id='))?.split('=')[1];
+  if (specificFileId) {
+    console.log(`[Worker] Targeted mode: Processing file ID ${specificFileId}...`);
+    const { data: targetFile, error } = await supabase
+      .from('files')
+      .select('*')
+      .eq('id', specificFileId)
+      .single();
+    if (error || !targetFile) {
+      console.error('[Worker] Target file not found:', error?.message);
+      process.exit(1);
+    }
+    await processVideo(targetFile);
+    console.log('[Worker] Targeted file processed. Exiting.');
+    process.exit(0);
+  }
 
   // If running in single-scan batch mode (e.g. GitHub Actions runner or Cloud Cron)
   if (process.argv.includes('--once')) {

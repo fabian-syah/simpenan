@@ -91,6 +91,8 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   const savedTimeRef = useRef<number>(0);
   const wasPlayingRef = useRef<boolean>(false);
   const prevPropUrlRef = useRef<string>(url);
+  const [failedUrls, setFailedUrls] = useState<string[]>([]);
+  const autoPlayedForFileRef = useRef<string | null>(null);
 
   // Helper to get active and standby video elements
   const getActiveVideo = useCallback(() => {
@@ -102,6 +104,8 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   useEffect(() => {
     if (url && url !== prevPropUrlRef.current) {
       prevPropUrlRef.current = url;
+      setFailedUrls([]);
+      autoPlayedForFileRef.current = null;
       // If neither slot matches the new URL, reset to slot 0
       if (url0 !== url && url1 !== url) {
         setUrl0(url);
@@ -122,33 +126,38 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     return ext === 'mkv' || ext === 'avi' || ext === 'flv' || ext === 'wmv' || (mimeType ? mimeType.includes('matroska') : false);
   }, [fileName, mimeType]);
 
-  // Auto-play MP4 variant for MKV/unsupported codecs as soon as variants are available
+  // Auto-play MP4 variant for MKV/unsupported codecs once variants are available (runs once per file)
   useEffect(() => {
-    if (variants && variants.length > 0) {
+    if (!variants || variants.length === 0) return;
+    const fileKey = `${fileId || fileName}`;
+    if (autoPlayedForFileRef.current === fileKey) return;
+
+    if (isMkv) {
+      const validVariants = variants.filter(
+        (v) => !failedUrls.includes(getDownloadUrl(v.id))
+      );
       const best =
-        variants.find((v) => v.name.toLowerCase().includes('720p')) ||
-        variants.find((v) => v.name.toLowerCase().includes('480p')) ||
-        variants.find((v) => v.name.toLowerCase().includes('360p')) ||
-        variants[0];
+        validVariants.find((v) => v.name.toLowerCase().includes('720p')) ||
+        validVariants.find((v) => v.name.toLowerCase().includes('480p')) ||
+        validVariants.find((v) => v.name.toLowerCase().includes('360p')) ||
+        validVariants[0];
 
       if (best) {
         const bestUrl = getDownloadUrl(best.id);
         const match = best.name.match(/(720p|480p|360p)/i);
         const resLabel = match ? match[1] : '720p';
 
-        // If in error state or still pointing to unplayable container (like MKV), immediately swap to playable MP4
-        if (hasError || (isMkv && url0 !== bestUrl && url1 !== bestUrl)) {
-          console.log('[VideoPlayer] Auto-playing playable MP4 variant:', best.name);
-          setUrl0(bestUrl);
-          setUrl1('');
-          setActiveSlot(0);
-          setHasError(false);
-          setIsBuffering(true);
-          onSelectResolution?.(resLabel, bestUrl);
-        }
+        autoPlayedForFileRef.current = fileKey;
+        console.log('[VideoPlayer] Auto-selected playable MP4 variant:', best.name);
+        setUrl0(bestUrl);
+        setUrl1('');
+        setActiveSlot(0);
+        setHasError(false);
+        setIsBuffering(true);
+        onSelectResolution?.(resLabel, bestUrl);
       }
     }
-  }, [isMkv, variants, hasError, url0, url1, onSelectResolution]);
+  }, [isMkv, variants, fileId, fileName, failedUrls, onSelectResolution]);
 
   // Handle Play/Pause on Active Video
   const togglePlay = useCallback(() => {
@@ -422,10 +431,54 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   };
 
   const handleVideoError = (slot: 0 | 1) => {
+    const failedUrl = slot === 0 ? url0 : url1;
+    if (failedUrl) {
+      console.warn(`[VideoPlayer] Video playback failed in slot ${slot} (${failedUrl})`);
+    }
+
     if (slot === activeSlot) {
+      const updatedFailed = failedUrl && !failedUrls.includes(failedUrl)
+        ? [...failedUrls, failedUrl]
+        : failedUrls;
+      if (failedUrl) {
+        setFailedUrls(updatedFailed);
+      }
+
+      // Automatic fallback: try the next available variant that has NOT failed
+      if (variants && variants.length > 0) {
+        const remainingVariants = variants.filter(
+          (v) => !updatedFailed.includes(getDownloadUrl(v.id))
+        );
+        const nextVariant =
+          remainingVariants.find((v) => v.name.toLowerCase().includes('720p')) ||
+          remainingVariants.find((v) => v.name.toLowerCase().includes('480p')) ||
+          remainingVariants.find((v) => v.name.toLowerCase().includes('360p')) ||
+          remainingVariants[0];
+
+        if (nextVariant) {
+          const nextUrl = getDownloadUrl(nextVariant.id);
+          const match = nextVariant.name.match(/(720p|480p|360p)/i);
+          const resLabel = match ? match[1] : 'Auto';
+
+          console.log(`[VideoPlayer] Falling back to resolution: ${nextVariant.name}`);
+          setUrl0(nextUrl);
+          setUrl1('');
+          setActiveSlot(0);
+          setHasError(false);
+          setIsBuffering(true);
+          onSelectResolution?.(resLabel, nextUrl);
+          return;
+        }
+      }
+
+      // All options exhausted: show meaningful error UI and stop buffering spinner
       setIsBuffering(false);
       setHasError(true);
-      if (isMkv) {
+      if (failedUrl && failedUrl.includes('/api/files/download')) {
+        setErrorMessage(
+          'Server penyimpanan video saat ini sedang mencapai batas kuota bandwidth harian atau tidak dapat diakses. Silakan unduh file untuk diputar di perangkat Anda.'
+        );
+      } else if (isMkv) {
         setErrorMessage(
           'Browser tidak mendukung format container .mkv atau codec anime 10-bit secara native. Silakan unduh file untuk diputar di VLC Player.'
         );
@@ -442,6 +495,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   };
 
   const retryPlayback = () => {
+    setFailedUrls([]);
     setHasError(false);
     setIsBuffering(true);
     const video = getActiveVideo();
@@ -460,19 +514,22 @@ export const VideoPlayer = React.memo(function VideoPlayer({
 
   const autoRecommendedRes = useMemo(() => {
     if (!variants || variants.length === 0) return '1080p';
-    const has720 = variants.some((v) => v.name.toLowerCase().includes('720p'));
+    const nonFailedVariants = variants.filter((v) => !failedUrls.includes(getDownloadUrl(v.id)));
+    const targetPool = nonFailedVariants.length > 0 ? nonFailedVariants : variants;
+    const has720 = targetPool.some((v) => v.name.toLowerCase().includes('720p'));
     if (has720) return '720p';
-    const has480 = variants.some((v) => v.name.toLowerCase().includes('480p'));
+    const has480 = targetPool.some((v) => v.name.toLowerCase().includes('480p'));
     if (has480) return '480p';
-    const has360 = variants.some((v) => v.name.toLowerCase().includes('360p'));
+    const has360 = targetPool.some((v) => v.name.toLowerCase().includes('360p'));
     if (has360) return '360p';
     return '1080p';
-  }, [variants]);
+  }, [variants, failedUrls]);
 
   const handleResolutionClick = useCallback(
     (resLabel: string, targetUrl: string, isAutoChoice = false) => {
       setShowQualityMenu(false);
       setIsAutoQuality(isAutoChoice);
+      setFailedUrls((prev) => prev.filter((u) => u !== targetUrl));
 
       const activeVid = getActiveVideo();
       const currentSlotUrl = activeSlot === 0 ? url0 : url1;
@@ -782,34 +839,37 @@ export const VideoPlayer = React.memo(function VideoPlayer({
           </p>
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {/* If variants exist (e.g. 720p MP4), show button to switch to variant directly */}
-            {variants && variants.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  const first = variants[0];
-                  const match = first.name.match(/(720p|480p|360p)/i);
-                  const res = match ? match[1] : '720p';
-                  handleResolutionClick(res, getDownloadUrl(first.id));
-                  setHasError(false);
-                  setIsBuffering(true);
-                }}
-                className="cv-btn-primary"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '10px 20px',
-                  borderRadius: 10,
-                  fontWeight: 600,
-                  fontSize: 14,
-                  boxShadow: '0 4px 20px rgba(2, 132, 199, 0.4)',
-                }}
-              >
-                <Play size={16} fill="white" />
-                Putar Resolusi {variants[0].name.match(/(720p|480p|360p)/i)?.[1] || 'Alternatif'} (MP4)
-              </button>
-            )}
+            {/* If untried variants exist, show button to switch to that variant */}
+            {variants && variants.length > 0 && (() => {
+              const untried = variants.find((v) => !failedUrls.includes(getDownloadUrl(v.id)));
+              if (!untried) return null;
+              const match = untried.name.match(/(720p|480p|360p)/i);
+              const res = match ? match[1] : 'Alternatif';
+              return (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleResolutionClick(res, getDownloadUrl(untried.id));
+                    setHasError(false);
+                    setIsBuffering(true);
+                  }}
+                  className="cv-btn-primary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '10px 20px',
+                    borderRadius: 10,
+                    fontWeight: 600,
+                    fontSize: 14,
+                    boxShadow: '0 4px 20px rgba(2, 132, 199, 0.4)',
+                  }}
+                >
+                  <Play size={16} fill="white" />
+                  Putar Resolusi {res} (MP4)
+                </button>
+              );
+            })()}
 
             {/* If no variant exists yet, show worker processing message */}
             {(!variants || variants.length === 0) && (
