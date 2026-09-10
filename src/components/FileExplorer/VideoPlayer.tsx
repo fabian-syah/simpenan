@@ -7,7 +7,8 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   Play, Pause, Volume2, Volume1, VolumeX, Maximize, Minimize,
   RotateCcw, RotateCw, Download, ExternalLink, AlertTriangle,
-  RefreshCw, Check, SlidersHorizontal, Captions, Plus
+  RefreshCw, Check, SlidersHorizontal, Captions, Plus,
+  PictureInPicture2, Moon, Timer, Type, Palette
 } from 'lucide-react';
 import { formatBytes } from '../../types';
 import { getDownloadUrl } from '../../lib/api';
@@ -113,6 +114,50 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   const [failedUrls, setFailedUrls] = useState<string[]>([]);
   const autoPlayedForFileRef = useRef<string | null>(null);
 
+  // Auto-Remember Playback Position State
+  const playbackStorageKey = useMemo(() => `cv_playback_pos_${fileId || fileName}`, [fileId, fileName]);
+  const [resumeToast, setResumeToast] = useState<{ time: number; formatted: string } | null>(null);
+  const resumeDismissTimerRef = useRef<number | null>(null);
+  const hasCheckedResumeRef = useRef(false);
+  const lastSavedTimeRef = useRef(0);
+
+  // Picture-in-Picture (PiP) State
+  const isPipSupported = typeof document !== 'undefined' && 'pictureInPictureEnabled' in document && document.pictureInPictureEnabled;
+  const [isPipActive, setIsPipActive] = useState(false);
+
+  // Sleep Timer State
+  const [sleepTimerOption, setSleepTimerOption] = useState<number | 'end' | null>(null);
+  const [sleepTimerSecondsLeft, setSleepTimerSecondsLeft] = useState<number | null>(null);
+  const [showSleepMenu, setShowSleepMenu] = useState(false);
+  const [isSleepOverlayActive, setIsSleepOverlayActive] = useState(false);
+
+  // Subtitle Customization State (Sync & Styling)
+  const [subTab, setSubTab] = useState<'tracks' | 'sync' | 'style'>('tracks');
+  const [subDelay, setSubDelay] = useState<number>(0);
+  const [subFontSize, setSubFontSize] = useState<'small' | 'medium' | 'large'>(() => {
+    try {
+      const s = localStorage.getItem('cv_sub_size');
+      return (s as 'small' | 'medium' | 'large') || 'medium';
+    } catch {
+      return 'medium';
+    }
+  });
+  const [subColor, setSubColor] = useState<string>(() => {
+    try {
+      return localStorage.getItem('cv_sub_color') || '#ffffff';
+    } catch {
+      return '#ffffff';
+    }
+  });
+  const [subBg, setSubBg] = useState<'translucent' | 'solid' | 'none'>(() => {
+    try {
+      const s = localStorage.getItem('cv_sub_bg');
+      return (s as 'translucent' | 'solid' | 'none') || 'translucent';
+    } catch {
+      return 'translucent';
+    }
+  });
+
   // Helper to get active and standby video elements
   const getActiveVideo = useCallback(() => {
     return activeSlot === 0 ? videoRef0.current : videoRef1.current;
@@ -122,6 +167,9 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   useEffect(() => {
     if (activeFileKey && activeFileKey !== prevFileKeyRef.current) {
       prevFileKeyRef.current = activeFileKey;
+      hasCheckedResumeRef.current = false;
+      setResumeToast(null);
+      setSubDelay(0);
       setFailedUrls([]);
       autoPlayedForFileRef.current = null;
       setUrl0(initialPlayableUrl);
@@ -263,9 +311,133 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         setShowControls(false);
         setShowSpeedMenu(false);
         setShowQualityMenu(false);
+        setShowSubMenu(false);
+        setShowSleepMenu(false);
       }, 2500);
     }
   }, [isPlaying]);
+
+  // Toggle Picture-in-Picture
+  const togglePip = useCallback(async () => {
+    const video = getActiveVideo();
+    if (!video) return;
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else if (video.requestPictureInPicture) {
+        await video.requestPictureInPicture();
+      }
+    } catch (err) {
+      console.warn('PiP error:', err);
+    }
+  }, [getActiveVideo]);
+
+  // PiP event listeners
+  useEffect(() => {
+    const v0 = videoRef0.current;
+    const v1 = videoRef1.current;
+    const onEnter = () => setIsPipActive(true);
+    const onLeave = () => setIsPipActive(false);
+
+    v0?.addEventListener('enterpictureinpicture', onEnter);
+    v0?.addEventListener('leavepictureinpicture', onLeave);
+    v1?.addEventListener('enterpictureinpicture', onEnter);
+    v1?.addEventListener('leavepictureinpicture', onLeave);
+
+    return () => {
+      v0?.removeEventListener('enterpictureinpicture', onEnter);
+      v0?.removeEventListener('leavepictureinpicture', onLeave);
+      v1?.removeEventListener('enterpictureinpicture', onEnter);
+      v1?.removeEventListener('leavepictureinpicture', onLeave);
+    };
+  }, []);
+
+  // Sleep Timer Countdown Effect
+  useEffect(() => {
+    if (sleepTimerSecondsLeft === null) return;
+
+    const interval = window.setInterval(() => {
+      setSleepTimerSecondsLeft((prev) => {
+        if (prev === null || prev <= 1) {
+          const vid = getActiveVideo();
+          if (vid) vid.pause();
+          setIsPlaying(false);
+          setIsSleepOverlayActive(true);
+          setSleepTimerOption(null);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [sleepTimerSecondsLeft === null, getActiveVideo]);
+
+  const setSleepTimer = useCallback((choice: number | 'end' | null) => {
+    setSleepTimerOption(choice);
+    setShowSleepMenu(false);
+    if (typeof choice === 'number') {
+      setSleepTimerSecondsLeft(choice * 60);
+    } else {
+      setSleepTimerSecondsLeft(null);
+    }
+  }, []);
+
+  // Subtitle Delay and Style Handlers
+  const adjustSubDelay = useCallback((delta: number) => {
+    setSubDelay((prev) => {
+      const next = Math.round((prev + delta) * 10) / 10;
+      [videoRef0.current, videoRef1.current].forEach((vid) => {
+        if (!vid) return;
+        for (let t = 0; t < vid.textTracks.length; t++) {
+          const track = vid.textTracks[t];
+          if (track && track.cues) {
+            for (let c = 0; c < track.cues.length; c++) {
+              const cue = track.cues[c] as VTTCue;
+              if (cue) {
+                cue.startTime = Math.max(0, cue.startTime + delta);
+                cue.endTime = Math.max(0, cue.endTime + delta);
+              }
+            }
+          }
+        }
+      });
+      return next;
+    });
+  }, []);
+
+  const resetSubDelay = useCallback(() => {
+    adjustSubDelay(-subDelay);
+    setSubDelay(0);
+  }, [adjustSubDelay, subDelay]);
+
+  const changeSubFontSize = useCallback((size: 'small' | 'medium' | 'large') => {
+    setSubFontSize(size);
+    try { localStorage.setItem('cv_sub_size', size); } catch {}
+  }, []);
+
+  const changeSubColor = useCallback((color: string) => {
+    setSubColor(color);
+    try { localStorage.setItem('cv_sub_color', color); } catch {}
+  }, []);
+
+  const changeSubBg = useCallback((bg: 'translucent' | 'solid' | 'none') => {
+    setSubBg(bg);
+    try { localStorage.setItem('cv_sub_bg', bg); } catch {}
+  }, []);
+
+  // Restart playback from beginning
+  const handleRestartFromBeginning = useCallback(() => {
+    try {
+      localStorage.removeItem(playbackStorageKey);
+    } catch {}
+    const vid = getActiveVideo();
+    if (vid) {
+      vid.currentTime = 0;
+      setCurrentTime(0);
+    }
+    setResumeToast(null);
+  }, [getActiveVideo, playbackStorageKey]);
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -297,12 +469,21 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         toggleMute();
       } else if (e.key === 'f') {
         toggleFullscreen();
+      } else if (e.key === 'p' && isPipSupported) {
+        e.preventDefault();
+        togglePip();
+      } else if (e.key === '[') {
+        e.preventDefault();
+        adjustSubDelay(-0.5);
+      } else if (e.key === ']') {
+        e.preventDefault();
+        adjustSubDelay(0.5);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlay, skip, volume, toggleMute, toggleFullscreen, getActiveVideo]);
+  }, [togglePlay, skip, volume, toggleMute, toggleFullscreen, getActiveVideo, togglePip, adjustSubDelay, isPipSupported]);
 
   // Track video events for both slots
   const handleVideoPlay = (slot: 0 | 1) => {
@@ -317,6 +498,12 @@ export const VideoPlayer = React.memo(function VideoPlayer({
 
     if (slot === activeSlot) {
       setIsPlaying(false);
+      const vid = slot === 0 ? videoRef0.current : videoRef1.current;
+      if (vid && vid.duration > 30 && vid.currentTime > 5 && vid.currentTime < vid.duration - 15) {
+        try {
+          localStorage.setItem(playbackStorageKey, vid.currentTime.toString());
+        } catch {}
+      }
     }
   };
 
@@ -328,6 +515,35 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       const buf = vid.buffered;
       if (buf.length > 0) {
         setBufferedEnd(buf.end(buf.length - 1));
+      }
+
+      // Auto-save playback position (throttled ~3s)
+      if (vid.duration > 30) {
+        if (vid.currentTime > vid.duration - 15) {
+          // Near end -> clear saved position
+          try {
+            localStorage.removeItem(playbackStorageKey);
+          } catch {}
+        } else if (vid.currentTime > 5 && Math.abs(vid.currentTime - lastSavedTimeRef.current) > 3) {
+          lastSavedTimeRef.current = vid.currentTime;
+          try {
+            localStorage.setItem(playbackStorageKey, vid.currentTime.toString());
+          } catch {}
+        }
+      }
+    }
+  };
+
+  const handleVideoEnded = (slot: 0 | 1) => {
+    if (slot === activeSlot) {
+      setIsPlaying(false);
+      try {
+        localStorage.removeItem(playbackStorageKey);
+      } catch {}
+      if (sleepTimerOption === 'end') {
+        setIsSleepOverlayActive(true);
+        setSleepTimerOption(null);
+        setSleepTimerSecondsLeft(null);
       }
     }
   };
@@ -359,7 +575,27 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         vid.currentTime = target;
         setCurrentTime(target);
         savedTimeRef.current = 0;
+      } else if (!hasCheckedResumeRef.current) {
+        hasCheckedResumeRef.current = true;
+        try {
+          const raw = localStorage.getItem(playbackStorageKey);
+          if (raw) {
+            const savedSec = parseFloat(raw);
+            if (savedSec > 5 && vid.duration && savedSec < vid.duration - 15) {
+              vid.currentTime = savedSec;
+              setCurrentTime(savedSec);
+              setResumeToast({ time: savedSec, formatted: formatTime(savedSec) });
+              if (resumeDismissTimerRef.current) clearTimeout(resumeDismissTimerRef.current);
+              resumeDismissTimerRef.current = window.setTimeout(() => {
+                setResumeToast(null);
+              }, 7000);
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to load playback position:', err);
+        }
       }
+
       if (wasPlayingRef.current) {
         vid.play().catch(() => {});
         wasPlayingRef.current = false;
@@ -671,8 +907,145 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        ['--sub-font-size' as any]: subFontSize === 'small' ? '14px' : subFontSize === 'large' ? '23px' : '18px',
+        ['--sub-color' as any]: subColor,
+        ['--sub-bg' as any]: subBg === 'none' ? 'transparent' : subBg === 'solid' ? '#000000' : 'rgba(0, 0, 0, 0.75)',
       }}
     >
+      {/* Auto-Resume Playback Toast Notification */}
+      {resumeToast && (
+        <div
+          className="cv-resume-toast"
+          style={{
+            position: 'absolute',
+            top: 20,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(15, 23, 42, 0.94)',
+            border: '1px solid rgba(56, 189, 248, 0.4)',
+            borderRadius: '12px',
+            padding: '8px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            zIndex: 35,
+            backdropFilter: 'blur(16px)',
+            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.25)',
+            color: '#f8fafc',
+            fontSize: '13px',
+            fontWeight: 500,
+          }}
+        >
+          <span>Melanjutkan dari <strong style={{ color: '#38bdf8' }}>{resumeToast.formatted}</strong></span>
+          <button
+            type="button"
+            onClick={handleRestartFromBeginning}
+            style={{
+              background: 'rgba(56, 189, 248, 0.18)',
+              border: '1px solid rgba(56, 189, 248, 0.4)',
+              color: '#38bdf8',
+              borderRadius: '6px',
+              padding: '3px 10px',
+              fontSize: '11.5px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <RotateCcw size={12} />
+            Ulangi dari Awal
+          </button>
+          <button
+            type="button"
+            onClick={() => setResumeToast(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#94a3b8',
+              cursor: 'pointer',
+              padding: '2px 4px',
+              display: 'flex',
+              alignItems: 'center',
+              fontSize: '13px',
+            }}
+            title="Tutup Notifikasi"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Sleep Timer Overlay (When countdown expires or video ends with sleep timer) */}
+      {isSleepOverlayActive && (
+        <div
+          className="cv-sleep-overlay"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: 'rgba(7, 11, 20, 0.92)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '32px',
+            textAlign: 'center',
+            color: '#f8fafc',
+            zIndex: 40,
+          }}
+        >
+          <div
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: '50%',
+              background: 'rgba(56, 189, 248, 0.15)',
+              border: '1.5px solid rgba(56, 189, 248, 0.35)',
+              color: '#38bdf8',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+              boxShadow: '0 0 35px rgba(56, 189, 248, 0.3)',
+            }}
+          >
+            <Moon size={36} />
+          </div>
+          <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: '#f8fafc' }}>
+            Zzz... Sleep Timer Aktif
+          </h3>
+          <p style={{ fontSize: 13.5, color: '#94a3b8', maxWidth: 440, lineHeight: 1.5, marginBottom: 24 }}>
+            Pemutaran video otomatis dijeda agar Anda bisa beristirahat dengan nyaman.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setIsSleepOverlayActive(false);
+              const vid = getActiveVideo();
+              if (vid) {
+                vid.play().catch(() => {});
+                setIsPlaying(true);
+              }
+            }}
+            className="cv-btn-primary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 22px',
+              borderRadius: 10,
+              fontWeight: 600,
+              fontSize: 14,
+              boxShadow: '0 4px 20px rgba(2, 132, 199, 0.4)',
+              cursor: 'pointer',
+            }}
+          >
+            <Play size={16} fill="currentColor" /> Lanjutkan Menonton
+          </button>
+        </div>
+      )}
+
       {/* Dual Video Elements: Slot 0 and Slot 1 for instant, seamless hot-swap */}
       {!hasError && (
         <>
@@ -692,6 +1065,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
             onWaiting={() => handleVideoWaiting(0)}
             onPlaying={() => handleVideoPlaying(0)}
             onError={() => handleVideoError(0)}
+            onEnded={() => handleVideoEnded(0)}
             style={{
               position: 'absolute',
               inset: 0,
@@ -733,6 +1107,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
             onWaiting={() => handleVideoWaiting(1)}
             onPlaying={() => handleVideoPlaying(1)}
             onError={() => handleVideoError(1)}
+            onEnded={() => handleVideoEnded(1)}
             style={{
               position: 'absolute',
               inset: 0,
@@ -1133,6 +1508,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                     setShowSubMenu(!showSubMenu);
                     setShowQualityMenu(false);
                     setShowSpeedMenu(false);
+                    setShowSleepMenu(false);
                   }}
                   style={{
                     ...controlBtnStyle,
@@ -1161,97 +1537,341 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                       background: 'rgba(15, 23, 42, 0.96)',
                       border: '1px solid rgba(56, 189, 248, 0.25)',
                       borderRadius: 12,
-                      padding: '8px',
+                      padding: '10px',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 4,
+                      gap: 8,
                       zIndex: 25,
                       backdropFilter: 'blur(16px)',
-                      minWidth: 200,
+                      minWidth: 260,
                       boxShadow: '0 12px 30px rgba(0, 0, 0, 0.7)',
                     }}
                   >
-                    <div style={{ padding: '4px 8px 6px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Subtitle (CC)
+                    {/* Subtitle Tabs Header */}
+                    <div style={{ display: 'flex', gap: 4, background: 'rgba(255, 255, 255, 0.05)', padding: 3, borderRadius: 8 }}>
+                      {(['tracks', 'sync', 'style'] as const).map((tab) => {
+                        const labels = { tracks: 'Teks', sync: 'Delay', style: 'Gaya' };
+                        const isActive = subTab === tab;
+                        return (
+                          <button
+                            key={tab}
+                            type="button"
+                            onClick={() => setSubTab(tab)}
+                            style={{
+                              flex: 1,
+                              padding: '4px 6px',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              borderRadius: 6,
+                              border: 'none',
+                              background: isActive ? 'rgba(56, 189, 248, 0.25)' : 'transparent',
+                              color: isActive ? '#38bdf8' : '#94a3b8',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s',
+                            }}
+                          >
+                            {labels[tab]}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Tab 1: Tracks */}
+                    {subTab === 'tracks' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedSubIndex(-1);
+                            setShowSubMenu(false);
+                          }}
+                          style={{
+                            background: selectedSubIndex === -1 ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                            color: selectedSubIndex === -1 ? '#38bdf8' : '#e2e8f0',
+                            border: 'none',
+                            padding: '6px 8px',
+                            borderRadius: 8,
+                            fontSize: 12,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                          }}
+                        >
+                          <span>Matikan Subtitle (Off)</span>
+                          {selectedSubIndex === -1 && <Check size={14} />}
+                        </button>
+
+                        {subtitles.map((sub, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setSelectedSubIndex(idx);
+                              setShowSubMenu(false);
+                            }}
+                            style={{
+                              background: selectedSubIndex === idx ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                              color: selectedSubIndex === idx ? '#38bdf8' : '#e2e8f0',
+                              border: 'none',
+                              padding: '6px 8px',
+                              borderRadius: 8,
+                              fontSize: 12,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {sub.label}
+                            </span>
+                            {selectedSubIndex === idx && <Check size={14} />}
+                          </button>
+                        ))}
+
+                        <div style={{ marginTop: 4, paddingTop: 6, borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                          <button
+                            type="button"
+                            onClick={() => subInputRef.current?.click()}
+                            style={{
+                              width: '100%',
+                              background: 'rgba(56, 189, 248, 0.15)',
+                              border: '1px solid rgba(56, 189, 248, 0.3)',
+                              color: '#38bdf8',
+                              padding: '6px 8px',
+                              borderRadius: 8,
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 6,
+                            }}
+                          >
+                            <Plus size={13} />
+                            Muat File Subtitle (.srt/.vtt)
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedSubIndex(-1);
-                        setShowSubMenu(false);
-                      }}
-                      style={{
-                        background: selectedSubIndex === -1 ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                        color: selectedSubIndex === -1 ? '#38bdf8' : '#e2e8f0',
-                        border: 'none',
-                        padding: '6px 8px',
-                        borderRadius: 8,
-                        fontSize: 12,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <span>Matikan Subtitle (Off)</span>
-                      {selectedSubIndex === -1 && <Check size={14} />}
-                    </button>
+                    {/* Tab 2: Sync / Delay */}
+                    {subTab === 'sync' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '4px 2px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 11, color: '#94a3b8' }}>Offset Waktu Subtitle:</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: subDelay === 0 ? '#e2e8f0' : '#38bdf8', fontFamily: 'monospace' }}>
+                            {subDelay > 0 ? `+${subDelay.toFixed(1)}s` : `${subDelay.toFixed(1)}s`}
+                          </span>
+                        </div>
 
-                    {subtitles.map((sub, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => {
-                          setSelectedSubIndex(idx);
-                          setShowSubMenu(false);
-                        }}
-                        style={{
-                          background: selectedSubIndex === idx ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                          color: selectedSubIndex === idx ? '#38bdf8' : '#e2e8f0',
-                          border: 'none',
-                          padding: '6px 8px',
-                          borderRadius: 8,
-                          fontSize: 12,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                        }}
-                      >
-                        <span style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {sub.label}
-                        </span>
-                        {selectedSubIndex === idx && <Check size={14} />}
-                      </button>
-                    ))}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                          <button
+                            type="button"
+                            onClick={() => adjustSubDelay(-0.5)}
+                            style={{
+                              background: 'rgba(255,255,255,0.06)',
+                              border: '1px solid rgba(255,255,255,0.12)',
+                              color: '#e2e8f0',
+                              padding: '6px 4px',
+                              borderRadius: 6,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            -0.5s
+                          </button>
+                          <button
+                            type="button"
+                            onClick={resetSubDelay}
+                            style={{
+                              background: 'rgba(56, 189, 248, 0.15)',
+                              border: '1px solid rgba(56, 189, 248, 0.3)',
+                              color: '#38bdf8',
+                              padding: '6px 4px',
+                              borderRadius: 6,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Reset
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => adjustSubDelay(0.5)}
+                            style={{
+                              background: 'rgba(255,255,255,0.06)',
+                              border: '1px solid rgba(255,255,255,0.12)',
+                              color: '#e2e8f0',
+                              padding: '6px 4px',
+                              borderRadius: 6,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            +0.5s
+                          </button>
+                        </div>
 
-                    <div style={{ marginTop: 2, paddingTop: 6, borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                      <button
-                        type="button"
-                        onClick={() => subInputRef.current?.click()}
-                        style={{
-                          width: '100%',
-                          background: 'rgba(56, 189, 248, 0.15)',
-                          border: '1px solid rgba(56, 189, 248, 0.3)',
-                          color: '#38bdf8',
-                          padding: '6px 8px',
-                          borderRadius: 8,
-                          fontSize: 11.5,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 6,
-                        }}
-                      >
-                        <Plus size={13} />
-                        Muat File Subtitle (.srt/.vtt)
-                      </button>
-                    </div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            type="button"
+                            onClick={() => adjustSubDelay(-0.1)}
+                            style={{
+                              flex: 1,
+                              background: 'rgba(255,255,255,0.04)',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              color: '#94a3b8',
+                              padding: '4px',
+                              borderRadius: 6,
+                              fontSize: 10.5,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            -0.1s Halus
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => adjustSubDelay(0.1)}
+                            style={{
+                              flex: 1,
+                              background: 'rgba(255,255,255,0.04)',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              color: '#94a3b8',
+                              padding: '4px',
+                              borderRadius: 6,
+                              fontSize: 10.5,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            +0.1s Halus
+                          </button>
+                        </div>
+
+                        <div style={{ fontSize: 10, color: '#64748b', textAlign: 'center', marginTop: 2 }}>
+                          Shortcut keyboard: Tekan <strong style={{ color: '#38bdf8' }}>[</strong> atau <strong style={{ color: '#38bdf8' }}>]</strong>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tab 3: Style Customizer */}
+                    {subTab === 'style' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '4px 2px' }}>
+                        {/* Font Size */}
+                        <div>
+                          <div style={{ fontSize: 10.5, fontWeight: 600, color: '#94a3b8', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Type size={11} /> Ukuran Teks:
+                          </div>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            {(['small', 'medium', 'large'] as const).map((s) => {
+                              const labels = { small: 'Kecil', medium: 'Sedang', large: 'Besar' };
+                              const isActive = subFontSize === s;
+                              return (
+                                <button
+                                  key={s}
+                                  type="button"
+                                  onClick={() => changeSubFontSize(s)}
+                                  style={{
+                                    flex: 1,
+                                    background: isActive ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.05)',
+                                    border: isActive ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.08)',
+                                    color: isActive ? '#38bdf8' : '#e2e8f0',
+                                    borderRadius: 6,
+                                    padding: '4px 2px',
+                                    fontSize: 11,
+                                    cursor: 'pointer',
+                                    fontWeight: isActive ? 600 : 400,
+                                  }}
+                                >
+                                  {labels[s]}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Font Color */}
+                        <div>
+                          <div style={{ fontSize: 10.5, fontWeight: 600, color: '#94a3b8', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Palette size={11} /> Warna Teks:
+                          </div>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            {[
+                              { label: 'Putih', color: '#ffffff' },
+                              { label: 'Kuning', color: '#facc15' },
+                              { label: 'Cyan', color: '#38bdf8' },
+                            ].map((c) => {
+                              const isActive = subColor.toLowerCase() === c.color.toLowerCase();
+                              return (
+                                <button
+                                  key={c.color}
+                                  type="button"
+                                  onClick={() => changeSubColor(c.color)}
+                                  style={{
+                                    flex: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 5,
+                                    background: isActive ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.05)',
+                                    border: isActive ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.08)',
+                                    borderRadius: 6,
+                                    padding: '4px 2px',
+                                    fontSize: 11,
+                                    color: '#e2e8f0',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color }} />
+                                  <span>{c.label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Background */}
+                        <div>
+                          <div style={{ fontSize: 10.5, fontWeight: 600, color: '#94a3b8', marginBottom: 4 }}>
+                            Latar Belakang:
+                          </div>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            {[
+                              { label: 'Tipis', value: 'translucent' as const },
+                              { label: 'Pekat', value: 'solid' as const },
+                              { label: 'Polos', value: 'none' as const },
+                            ].map((b) => {
+                              const isActive = subBg === b.value;
+                              return (
+                                <button
+                                  key={b.value}
+                                  type="button"
+                                  onClick={() => changeSubBg(b.value)}
+                                  style={{
+                                    flex: 1,
+                                    background: isActive ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.05)',
+                                    border: isActive ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.08)',
+                                    color: isActive ? '#38bdf8' : '#e2e8f0',
+                                    borderRadius: 6,
+                                    padding: '4px 2px',
+                                    fontSize: 11,
+                                    cursor: 'pointer',
+                                    fontWeight: isActive ? 600 : 400,
+                                  }}
+                                >
+                                  {b.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 <input
@@ -1271,6 +1891,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                     setShowQualityMenu(!showQualityMenu);
                     setShowSpeedMenu(false);
                     setShowSubMenu(false);
+                    setShowSleepMenu(false);
                   }}
                   style={{
                     ...controlBtnStyle,
@@ -1664,6 +2285,8 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                   onClick={() => {
                     setShowSpeedMenu(!showSpeedMenu);
                     setShowQualityMenu(false);
+                    setShowSubMenu(false);
+                    setShowSleepMenu(false);
                   }}
                   style={{
                     ...controlBtnStyle,
@@ -1722,6 +2345,121 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                   </div>
                 )}
               </div>
+
+              {/* Sleep Timer */}
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSleepMenu(!showSleepMenu);
+                    setShowSpeedMenu(false);
+                    setShowQualityMenu(false);
+                    setShowSubMenu(false);
+                  }}
+                  style={{
+                    ...controlBtnStyle,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    padding: '3px 8px',
+                    borderRadius: 6,
+                    background: sleepTimerOption !== null ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255,255,255,0.1)',
+                    color: sleepTimerOption !== null ? '#38bdf8' : '#e2e8f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                  }}
+                  title="Sleep Timer Video"
+                >
+                  <Moon size={14} />
+                  <span>
+                    {sleepTimerSecondsLeft !== null
+                      ? `${Math.floor(sleepTimerSecondsLeft / 60)}:${(sleepTimerSecondsLeft % 60).toString().padStart(2, '0')}`
+                      : sleepTimerOption === 'end'
+                      ? 'End'
+                      : 'Timer'}
+                  </span>
+                </button>
+
+                {showSleepMenu && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 36,
+                      right: 0,
+                      background: 'rgba(15, 23, 42, 0.96)',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      borderRadius: 12,
+                      padding: '8px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                      zIndex: 25,
+                      backdropFilter: 'blur(16px)',
+                      minWidth: 175,
+                      boxShadow: '0 12px 30px rgba(0, 0, 0, 0.7)',
+                    }}
+                  >
+                    <div style={{ padding: '4px 8px 6px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Timer size={13} />
+                        <span>Sleep Timer</span>
+                      </div>
+                      <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 1 }}>
+                        Jeda video otomatis saat tidur
+                      </div>
+                    </div>
+
+                    {[
+                      { label: 'Nonaktif (Off)', value: null },
+                      { label: '15 Menit', value: 15 },
+                      { label: '30 Menit', value: 30 },
+                      { label: '45 Menit', value: 45 },
+                      { label: '60 Menit (1 Jam)', value: 60 },
+                      { label: 'Saat Video Selesai', value: 'end' as const },
+                    ].map((opt) => {
+                      const isActive = sleepTimerOption === opt.value;
+                      return (
+                        <button
+                          key={String(opt.value)}
+                          type="button"
+                          onClick={() => setSleepTimer(opt.value)}
+                          style={{
+                            background: isActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                            color: isActive ? '#38bdf8' : '#e2e8f0',
+                            border: 'none',
+                            padding: '6px 8px',
+                            borderRadius: 8,
+                            fontSize: 12,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                          }}
+                        >
+                          <span>{opt.label}</span>
+                          {isActive && <Check size={13} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Picture-in-Picture (PiP) */}
+              {isPipSupported && (
+                <button
+                  type="button"
+                  onClick={togglePip}
+                  style={{
+                    ...controlBtnStyle,
+                    color: isPipActive ? '#38bdf8' : '#e2e8f0',
+                    background: isPipActive ? 'rgba(56, 189, 248, 0.25)' : 'transparent',
+                  }}
+                  title={isPipActive ? 'Keluar dari Picture-in-Picture (p)' : 'Picture-in-Picture (p)'}
+                >
+                  <PictureInPicture2 size={17} />
+                </button>
+              )}
 
               {/* Fullscreen */}
               <button

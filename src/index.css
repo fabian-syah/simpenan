@@ -1669,5 +1669,52 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
   }
 }
 
+/* ============================================================
+   Video Player Supercharge: Subtitles, Auto-Resume & Sleep Timer
+   ============================================================ */
+.cv-video-container {
+  --sub-font-size: 18px;
+  --sub-color: #ffffff;
+  --sub-bg: rgba(0, 0, 0, 0.75);
+}
 
+.cv-video-container video::cue {
+  font-size: var(--sub-font-size, 18px) !important;
+  color: var(--sub-color, #ffffff) !important;
+  background-color: var(--sub-bg, rgba(0, 0, 0, 0.75)) !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9) !important;
+  font-family: system-ui, -apple-system, sans-serif !important;
+  line-height: 1.4 !important;
+  border-radius: 4px !important;
+  padding: 3px 8px !important;
+}
 
+@keyframes cvToastFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.cv-resume-toast {
+  animation: cvToastFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cvSleepFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(16px);
+  }
+}
+
+.cv-sleep-overlay {
+  animation: cvSleepFadeIn 0.35s ease forwards;
+}
