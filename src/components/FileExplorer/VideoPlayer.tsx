@@ -122,6 +122,34 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     return ext === 'mkv' || ext === 'avi' || ext === 'flv' || ext === 'wmv' || (mimeType ? mimeType.includes('matroska') : false);
   }, [fileName, mimeType]);
 
+  // Auto-play MP4 variant for MKV/unsupported codecs as soon as variants are available
+  useEffect(() => {
+    if (variants && variants.length > 0) {
+      const best =
+        variants.find((v) => v.name.toLowerCase().includes('720p')) ||
+        variants.find((v) => v.name.toLowerCase().includes('480p')) ||
+        variants.find((v) => v.name.toLowerCase().includes('360p')) ||
+        variants[0];
+
+      if (best) {
+        const bestUrl = getDownloadUrl(best.id);
+        const match = best.name.match(/(720p|480p|360p)/i);
+        const resLabel = match ? match[1] : '720p';
+
+        // If in error state or still pointing to unplayable container (like MKV), immediately swap to playable MP4
+        if (hasError || (isMkv && url0 !== bestUrl && url1 !== bestUrl)) {
+          console.log('[VideoPlayer] Auto-playing playable MP4 variant:', best.name);
+          setUrl0(bestUrl);
+          setUrl1('');
+          setActiveSlot(0);
+          setHasError(false);
+          setIsBuffering(true);
+          onSelectResolution?.(resLabel, bestUrl);
+        }
+      }
+    }
+  }, [isMkv, variants, hasError, url0, url1, onSelectResolution]);
+
   // Handle Play/Pause on Active Video
   const togglePlay = useCallback(() => {
     const video = getActiveVideo();
@@ -702,8 +730,8 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         </button>
       )}
 
-      {/* MKV / Codec Error Fallback Screen */}
-      {hasError && (
+      {/* MKV / Codec Error Fallback Screen (only displayed if NO playable MP4 variants exist) */}
+      {hasError && (!variants || variants.length === 0) && (
         <div
           style={{
             position: 'absolute',

@@ -51,19 +51,15 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
       const list = await fetchVariants(file.id);
       setVariants(list || []);
 
-      // If playing an unplayable format like MKV and activeResolution is still Original,
-      // auto-switch to 720p or highest available MP4 variant so it starts playing immediately!
+      // If playing an unplayable format like MKV and variants exist, auto-switch to 720p or best MP4
       if (isMkv && list && list.length > 0) {
-        setActiveResolution((prev) => {
-          if (prev === 'Original') {
-            const best = list.find(v => v.name.includes('720p')) || list.find(v => v.name.includes('480p')) || list[0];
-            const match = best.name.match(/(720p|480p|360p)/i);
-            const resLabel = match ? match[1] : '720p';
-            setActiveUrl(getDownloadUrl(best.id));
-            return resLabel;
-          }
-          return prev;
-        });
+        const best = list.find((v) => v.name.includes('720p')) || list.find((v) => v.name.includes('480p')) || list[0];
+        if (best) {
+          const match = best.name.match(/(720p|480p|360p)/i);
+          const resLabel = match ? match[1] : '720p';
+          setActiveUrl(getDownloadUrl(best.id));
+          setActiveResolution(resLabel);
+        }
       }
       return list;
     } catch (err) {
