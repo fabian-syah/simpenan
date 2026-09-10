@@ -1,0 +1,51 @@
+name: Simpenan Video Transcoder Worker
+
+on:
+  workflow_dispatch: # Manual trigger button in GitHub Actions
+  schedule:
+    - cron: '*/20 * * * *' # Auto-runs every 20 minutes in the cloud
+
+jobs:
+  transcode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install System FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Run Transcoder Batch
+        env:
+          SUPA_URL: ${{ secrets.SUPA_URL }}
+          SUPA_KEY: ${{ secrets.SUPA_KEY }}
+          SUPA_BUCKET: ${{ secrets.SUPA_BUCKET }}
+          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          B2_APP_KEY: ${{ secrets.B2_APP_KEY }}
+          B2_BUCKET: ${{ secrets.B2_BUCKET }}
+          B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
+          B2_REGION: ${{ secrets.B2_REGION }}
+          FILEBASE_KEY: ${{ secrets.FILEBASE_KEY }}
+          FILEBASE_SECRET: ${{ secrets.FILEBASE_SECRET }}
+          FILEBASE_BUCKET: ${{ secrets.FILEBASE_BUCKET }}
+          FILEBASE_ENDPOINT: ${{ secrets.FILEBASE_ENDPOINT }}
+          FILEBASE_REGION: ${{ secrets.FILEBASE_REGION }}
+          MEGA_EMAIL: ${{ secrets.MEGA_EMAIL }}
+          MEGA_PASSWORD: ${{ secrets.MEGA_PASSWORD }}
+          MEDIAFIRE_EMAIL: ${{ secrets.MEDIAFIRE_EMAIL }}
+          MEDIAFIRE_PASSWORD: ${{ secrets.MEDIAFIRE_PASSWORD }}
+          MEDIAFIRE_APP_ID: ${{ secrets.MEDIAFIRE_APP_ID }}
+        run: npx tsx scripts/worker.ts --once

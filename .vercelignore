@@ -1,0 +1,5 @@
+temp_worker
+temp_worker/**
+*.mkv
+*.mp4
+scripts/**
