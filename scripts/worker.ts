@@ -23,6 +23,24 @@ if (!ffmpegPath) {
 // ------------------------------------------------------------
 // 1. Environment & Clients Setup
 // ------------------------------------------------------------
+// Native fallback to load .env if not preloaded by runtime
+if ((!process.env.SUPA_URL || !process.env.SUPA_KEY) && fs.existsSync('.env')) {
+  try {
+    const envText = fs.readFileSync('.env', 'utf-8');
+    for (const line of envText.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+        const idx = trimmed.indexOf('=');
+        const key = trimmed.slice(0, idx).trim();
+        const val = trimmed.slice(idx + 1).trim();
+        process.env[key] = val;
+      }
+    }
+  } catch (envErr) {
+    console.warn('[Worker] Notice loading .env fallback:', envErr);
+  }
+}
+
 const SUPA_URL = process.env.SUPA_URL?.trim() || '';
 const SUPA_KEY = process.env.SUPA_KEY?.trim() || '';
 const SUPA_BUCKET = process.env.SUPA_BUCKET?.trim() || 'drive-clone-supa-1';
