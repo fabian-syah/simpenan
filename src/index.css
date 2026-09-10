@@ -1763,3 +1763,192 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
   }
 }
 
+/* ============================================================
+   Batch 2: File Explorer & Organisasi Cepat
+   ============================================================ */
+
+/* Filter & Organization Toolbar */
+.cv-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.cv-category-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.cv-category-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.cv-cat-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 99px;
+  border: 1px solid var(--cv-border);
+  background: var(--cv-bg-secondary);
+  color: var(--cv-text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cv-cat-tab:hover {
+  border-color: var(--cv-accent);
+  color: var(--cv-text-primary);
+  transform: translateY(-1px);
+}
+
+.cv-cat-tab.active {
+  background: var(--cv-accent);
+  color: #0f172a;
+  border-color: var(--cv-accent);
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.3);
+}
+
+.cv-cat-count {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.2);
+  color: inherit;
+}
+.cv-cat-tab.active .cv-cat-count {
+  background: rgba(15, 23, 42, 0.2);
+}
+
+/* Secondary controls on the right of filter bar */
+.cv-filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cv-filter-select {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--cv-border);
+  background: var(--cv-bg-secondary);
+  color: var(--cv-text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.cv-filter-select:hover,
+.cv-filter-select:focus {
+  border-color: var(--cv-accent);
+}
+
+/* Pinned Quick Access Section */
+.cv-pinned-section {
+  margin-bottom: 24px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.cv-pinned-header {
+  display: flex;
+  align-items: center;
+  justifyContent: space-between;
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cv-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cv-pinned-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.cv-pinned-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--cv-bg-secondary);
+  border: 1px solid var(--cv-border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.cv-pinned-chip:hover {
+  border-color: var(--cv-accent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* File Tags & Labels */
+.cv-tag-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Color Palette in Context Menu */
+.cv-color-palette {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  padding: 6px 8px;
+}
+
+.cv-color-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.cv-color-dot:hover {
+  transform: scale(1.2);
+  border-color: #ffffff;
+}
+
+/* Interactive List Header */
+.cv-file-list-header span.cv-sortable-th {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+  transition: color 0.2s;
+}
+
+.cv-file-list-header span.cv-sortable-th:hover {
+  color: var(--cv-accent);
+}
+
+
