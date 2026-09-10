@@ -1,7 +1,7 @@
 import type { FileRecord } from '../../types';
 import { getDownloadUrl, fetchVariants } from '../../lib/api';
 import { X, ExternalLink, ZoomIn, ZoomOut, RotateCw, Maximize, Download, Copy, Check, FileText } from 'lucide-react';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { getFileCategory } from '../../types';
 import { VideoPlayer } from './VideoPlayer';
 
@@ -41,17 +41,39 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
   const [variants, setVariants] = useState<Array<{ id: string; name: string; size_bytes?: number }>>([]);
   const [activeResolution, setActiveResolution] = useState<string>('Original');
   const [activeUrl, setActiveUrl] = useState<string>(getDownloadUrl(file.id));
+  const isMkv = useMemo(() => {
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    return ext === 'mkv' || ext === 'avi' || ext === 'flv' || ext === 'wmv' || (file.mime_type ? file.mime_type.includes('matroska') : false);
+  }, [file.name, file.mime_type]);
+
   // Load existing variants with auto-refresh while modal is open
   const loadVariants = useCallback(async () => {
     if (!isVideo) return;
     try {
       const list = await fetchVariants(file.id);
       setVariants(list || []);
+      if (list && list.length > 0 && isMkv) {
+        setActiveResolution((prev) => {
+          if (prev === 'Original') {
+            const best =
+              list.find((v) => v.name.toLowerCase().endsWith('.mp4') && v.name.toLowerCase().includes('720p')) ||
+              list.find((v) => v.name.toLowerCase().endsWith('.mp4') && v.name.toLowerCase().includes('480p')) ||
+              list.find((v) => v.name.toLowerCase().endsWith('.mp4') && v.name.toLowerCase().includes('360p')) ||
+              list.find((v) => v.name.toLowerCase().endsWith('.mp4'));
+            if (best) {
+              const match = best.name.match(/(720p|480p|360p)/i);
+              setActiveUrl(getDownloadUrl(best.id));
+              return match ? match[1] : '720p';
+            }
+          }
+          return prev;
+        });
+      }
       return list;
     } catch (err) {
       console.error('Failed to load variants:', err);
     }
-  }, [file.id, isVideo]);
+  }, [file.id, isVideo, isMkv]);
 
   useEffect(() => {
     loadVariants();
@@ -71,8 +93,9 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
     setActiveResolution('Original');
   }, [file.id]);
 
-  const handleSelectResolution = useCallback((res: string) => {
+  const handleSelectResolution = useCallback((res: string, targetUrl?: string) => {
     setActiveResolution(res);
+    if (targetUrl) setActiveUrl(targetUrl);
   }, []);
 
   // Photo viewer state

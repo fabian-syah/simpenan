@@ -137,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (file.provider_id === 'mediafire') {
       const { getMediaFireDownloadUrl } = await import('../_lib/mediafire.js');
       const directUrl = await getMediaFireDownloadUrl(file.storage_key);
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
       return res.redirect(302, directUrl);
     }
 
@@ -153,6 +153,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error('Supabase download error:', signErr);
         return res.status(500).json({ error: 'Failed to generate download URL', details: signErr?.message });
       }
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
       return res.redirect(302, signedData.signedUrl);
     }
 
@@ -162,6 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       file.storage_key
     );
 
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
     return res.redirect(302, downloadUrl);
   } catch (err: any) {
     console.error('Download error:', err);

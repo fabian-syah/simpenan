@@ -57,8 +57,26 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   const videoRef1 = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const isMkv = useMemo(() => {
+    const ext = fileName.split('.').pop()?.toLowerCase() || '';
+    return ext === 'mkv' || ext === 'avi' || ext === 'flv' || ext === 'wmv' || (mimeType ? mimeType.includes('matroska') : false);
+  }, [fileName, mimeType]);
+
+  // Initial URL: for MKV files, start with the 720p/480p MP4 variant if available to prevent unplayable MKV errors
+  const initialPlayableUrl = useMemo(() => {
+    if (isMkv && variants && variants.length > 0) {
+      const best =
+        variants.find((v) => v.name.toLowerCase().endsWith('.mp4') && v.name.toLowerCase().includes('720p')) ||
+        variants.find((v) => v.name.toLowerCase().endsWith('.mp4') && v.name.toLowerCase().includes('480p')) ||
+        variants.find((v) => v.name.toLowerCase().endsWith('.mp4') && v.name.toLowerCase().includes('360p')) ||
+        variants.find((v) => v.name.toLowerCase().endsWith('.mp4'));
+      if (best) return getDownloadUrl(best.id);
+    }
+    return url;
+  }, [isMkv, variants, url]);
+
   const [activeSlot, setActiveSlot] = useState<0 | 1>(0);
-  const [url0, setUrl0] = useState<string>(url);
+  const [url0, setUrl0] = useState<string>(initialPlayableUrl);
   const [url1, setUrl1] = useState<string>('');
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -100,14 +118,13 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     return activeSlot === 0 ? videoRef0.current : videoRef1.current;
   }, [activeSlot]);
 
-
   // Sync with prop when a DIFFERENT file is selected
   useEffect(() => {
     if (activeFileKey && activeFileKey !== prevFileKeyRef.current) {
       prevFileKeyRef.current = activeFileKey;
       setFailedUrls([]);
       autoPlayedForFileRef.current = null;
-      setUrl0(url);
+      setUrl0(initialPlayableUrl);
       setUrl1('');
       setActiveSlot(0);
       setIsBuffering(true);
@@ -115,16 +132,11 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       setIsSwitchingRes(false);
       setTargetResLabel(null);
     }
-  }, [activeFileKey, url]);
+  }, [activeFileKey, initialPlayableUrl]);
 
   const hideControlsTimer = useRef<number | null>(null);
 
-  const isMkv = useMemo(() => {
-    const ext = fileName.split('.').pop()?.toLowerCase() || '';
-    return ext === 'mkv' || ext === 'avi' || ext === 'flv' || ext === 'wmv' || (mimeType ? mimeType.includes('matroska') : false);
-  }, [fileName, mimeType]);
-
-  // Auto-play MP4 variant for MKV/unsupported codecs once variants are available (runs once per file)
+  // Auto-play MP4 variant for MKV/unsupported codecs once variants become available (runs once per file)
   useEffect(() => {
     if (!variants || variants.length === 0) return;
     const fileKey = `${fileId || fileName}`;
@@ -132,10 +144,10 @@ export const VideoPlayer = React.memo(function VideoPlayer({
 
     if (isMkv) {
       const best =
-        variants.find((v) => v.name.toLowerCase().includes('720p')) ||
-        variants.find((v) => v.name.toLowerCase().includes('480p')) ||
-        variants.find((v) => v.name.toLowerCase().includes('360p')) ||
-        variants[0];
+        variants.find((v) => v.name.toLowerCase().endsWith('.mp4') && v.name.toLowerCase().includes('720p')) ||
+        variants.find((v) => v.name.toLowerCase().endsWith('.mp4') && v.name.toLowerCase().includes('480p')) ||
+        variants.find((v) => v.name.toLowerCase().endsWith('.mp4') && v.name.toLowerCase().includes('360p')) ||
+        variants.find((v) => v.name.toLowerCase().endsWith('.mp4'));
 
       if (best) {
         const bestUrl = getDownloadUrl(best.id);
@@ -359,68 +371,64 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     }
   };
 
+  const isSwappingRef = useRef(false);
+
   // Perform seamless hot-swap when standby video has buffered frames
   const performHotSwap = useCallback((standbySlot: 0 | 1) => {
-    if (!isSwitchingRes) return;
+    if (!isSwitchingRes || isSwappingRef.current) return;
 
     const standbyVid = standbySlot === 0 ? videoRef0.current : videoRef1.current;
     const activeVid = activeSlot === 0 ? videoRef0.current : videoRef1.current;
     if (!standbyVid || !activeVid) return;
 
-    // Sync precise timestamp right before handoff
-    standbyVid.currentTime = activeVid.currentTime;
+    isSwappingRef.current = true;
+
+    // Only sync timestamp if drift is significant (> 0.5s) to avoid discarding buffered frames
+    if (Math.abs(standbyVid.currentTime - activeVid.currentTime) > 0.5) {
+      standbyVid.currentTime = activeVid.currentTime;
+    }
     standbyVid.playbackRate = activeVid.playbackRate;
 
     const wasActivePlaying = !activeVid.paused && !activeVid.ended;
 
+    const finishSwap = () => {
+      activeVid.pause();
+      activeVid.muted = true;
+      setActiveSlot(standbySlot);
+      setIsSwitchingRes(false);
+      isSwappingRef.current = false;
+      if (targetResLabel) {
+        onSelectResolution?.(targetResLabel, standbyVid.src);
+        setTargetResLabel(null);
+      }
+    };
+
     if (wasActivePlaying) {
       standbyVid.muted = activeVid.muted;
       standbyVid.volume = activeVid.volume;
-      standbyVid.play().then(() => {
-        // Standby playing successfully: pause active and swap
-        activeVid.pause();
-        activeVid.muted = true;
-        setActiveSlot(standbySlot);
-        setIsSwitchingRes(false);
-        if (targetResLabel) {
-          onSelectResolution?.(targetResLabel, standbyVid.src);
-          setTargetResLabel(null);
-        }
-      }).catch((playErr) => {
+      standbyVid.play().then(finishSwap).catch((playErr) => {
         console.warn('Standby play error, executing fallback swap:', playErr);
-        activeVid.pause();
-        setActiveSlot(standbySlot);
-        setIsSwitchingRes(false);
-        if (targetResLabel) {
-          onSelectResolution?.(targetResLabel, standbyVid.src);
-          setTargetResLabel(null);
-        }
+        finishSwap();
       });
     } else {
       // Was paused: simply transfer state and swap
       standbyVid.muted = activeVid.muted;
       standbyVid.volume = activeVid.volume;
       standbyVid.pause();
-      activeVid.muted = true;
-      setActiveSlot(standbySlot);
-      setIsSwitchingRes(false);
-      if (targetResLabel) {
-        onSelectResolution?.(targetResLabel, standbyVid.src);
-        setTargetResLabel(null);
-      }
+      finishSwap();
     }
   }, [isSwitchingRes, activeSlot, targetResLabel, onSelectResolution]);
 
   const handleVideoCanPlay = (slot: 0 | 1) => {
     if (slot === activeSlot) {
       setIsBuffering(false);
-    } else if (isSwitchingRes) {
+    } else if (isSwitchingRes && !isSwappingRef.current) {
       performHotSwap(slot);
     }
   };
 
   const handleVideoSeeked = (slot: 0 | 1) => {
-    if (slot !== activeSlot && isSwitchingRes) {
+    if (slot !== activeSlot && isSwitchingRes && !isSwappingRef.current) {
       performHotSwap(slot);
     }
   };
@@ -439,10 +447,12 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         setFailedUrls(updatedFailed);
       }
 
-      // Automatic fallback: try the next available variant that has NOT failed
+      // Automatic fallback: try the next available MP4 variant that has NOT failed
       if (variants && variants.length > 0) {
         const remainingVariants = variants.filter(
-          (v) => !updatedFailed.includes(getDownloadUrl(v.id))
+          (v) =>
+            v.name.toLowerCase().endsWith('.mp4') &&
+            !updatedFailed.includes(getDownloadUrl(v.id))
         );
         const nextVariant =
           remainingVariants.find((v) => v.name.toLowerCase().includes('720p')) ||
@@ -485,6 +495,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     } else if (isSwitchingRes) {
       console.warn('Standby video failed to load, cancelling hot-swap');
       setIsSwitchingRes(false);
+      isSwappingRef.current = false;
       setTargetResLabel(null);
     }
   };
@@ -502,23 +513,32 @@ export const VideoPlayer = React.memo(function VideoPlayer({
 
   const getVariantForRes = useCallback(
     (res: '720p' | '480p' | '360p') => {
-      return variants?.find((v) => v.name.toLowerCase().includes(res));
+      return variants?.find(
+        (v) => v.name.toLowerCase().endsWith('.mp4') && v.name.toLowerCase().includes(res)
+      );
     },
     [variants]
   );
 
   const autoRecommendedRes = useMemo(() => {
-    if (!variants || variants.length === 0) return '1080p';
-    const nonFailedVariants = variants.filter((v) => !failedUrls.includes(getDownloadUrl(v.id)));
-    const targetPool = nonFailedVariants.length > 0 ? nonFailedVariants : variants;
+    if (!variants || variants.length === 0) return isMkv ? '720p' : '1080p';
+    const nonFailedVariants = variants.filter(
+      (v) => v.name.toLowerCase().endsWith('.mp4') && !failedUrls.includes(getDownloadUrl(v.id))
+    );
+    const targetPool =
+      nonFailedVariants.length > 0
+        ? nonFailedVariants
+        : variants.filter((v) => v.name.toLowerCase().endsWith('.mp4'));
     const has720 = targetPool.some((v) => v.name.toLowerCase().includes('720p'));
     if (has720) return '720p';
     const has480 = targetPool.some((v) => v.name.toLowerCase().includes('480p'));
     if (has480) return '480p';
     const has360 = targetPool.some((v) => v.name.toLowerCase().includes('360p'));
     if (has360) return '360p';
-    return '1080p';
-  }, [variants, failedUrls]);
+    const has1080 = targetPool.some((v) => v.name.toLowerCase().includes('1080p'));
+    if (has1080) return '1080p';
+    return isMkv ? '720p' : '1080p';
+  }, [variants, failedUrls, isMkv]);
 
   const handleResolutionClick = useCallback(
     (resLabel: string, targetUrl: string, isAutoChoice = false) => {
@@ -642,7 +662,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
             ref={videoRef0}
             src={url0 || undefined}
             playsInline
-            preload="metadata"
+            preload="auto"
             onClick={togglePlay}
             onPlay={() => handleVideoPlay(0)}
             onPause={() => handleVideoPause(0)}
@@ -683,7 +703,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
             ref={videoRef1}
             src={url1 || undefined}
             playsInline
-            preload="metadata"
+            preload="auto"
             onClick={togglePlay}
             onPlay={() => handleVideoPlay(1)}
             onPause={() => handleVideoPause(1)}
@@ -782,8 +802,8 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         </button>
       )}
 
-      {/* MKV / Codec Error Fallback Screen (only displayed if NO playable MP4 variants exist) */}
-      {hasError && (!variants || variants.length === 0) && (
+      {/* Error Fallback Screen (displayed when current stream and automatic fallbacks fail) */}
+      {hasError && (
         <div
           style={{
             position: 'absolute',
@@ -1294,18 +1314,33 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                     <button
                       type="button"
                       onClick={() => {
-                        let bestUrl = fileId ? getDownloadUrl(fileId) : url;
-                        let bestLabel = '1080p';
+                        let bestUrl = '';
+                        let bestLabel = '720p';
+                        const v1080 = variants?.find(
+                          (v) => v.name.toLowerCase().endsWith('.mp4') && v.name.toLowerCase().includes('1080p')
+                        );
                         const v720 = getVariantForRes('720p');
+                        const v480 = getVariantForRes('480p');
+                        const v360 = getVariantForRes('360p');
+
                         if (v720) {
                           bestUrl = getDownloadUrl(v720.id);
                           bestLabel = '720p';
+                        } else if (v480) {
+                          bestUrl = getDownloadUrl(v480.id);
+                          bestLabel = '480p';
+                        } else if (v360) {
+                          bestUrl = getDownloadUrl(v360.id);
+                          bestLabel = '360p';
+                        } else if (v1080) {
+                          bestUrl = getDownloadUrl(v1080.id);
+                          bestLabel = '1080p';
+                        } else if (!isMkv && fileId) {
+                          bestUrl = getDownloadUrl(fileId);
+                          bestLabel = '1080p';
                         } else {
-                          const v480 = getVariantForRes('480p');
-                          if (v480) {
-                            bestUrl = getDownloadUrl(v480.id);
-                            bestLabel = '480p';
-                          }
+                          bestUrl = url;
+                          bestLabel = 'Auto';
                         }
                         handleResolutionClick(bestLabel, bestUrl, true);
                       }}
@@ -1339,38 +1374,120 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                     </button>
 
                     {/* 1080p / Original Option */}
-                    <button
-                      type="button"
-                      onClick={() => fileId && handleResolutionClick('1080p', getDownloadUrl(fileId), false)}
-                      style={{
-                        background:
-                          !isAutoQuality && (currentResolution === '1080p' || currentResolution === 'Original')
-                            ? 'rgba(56, 189, 248, 0.15)'
-                            : 'transparent',
-                        color:
-                          !isAutoQuality && (currentResolution === '1080p' || currentResolution === 'Original')
-                            ? '#38bdf8'
-                            : '#e2e8f0',
-                        border: 'none',
-                        padding: '6px 8px',
-                        borderRadius: 8,
-                        fontSize: 12,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        textAlign: 'left',
-                        transition: 'background 0.15s',
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 600 }}>1080p (Asli / Full HD)</div>
-                        {fileSize > 0 && <div style={{ fontSize: 10.5, color: '#94a3b8' }}>{formatBytes(fileSize)}</div>}
-                      </div>
-                      {!isAutoQuality && (currentResolution === '1080p' || currentResolution === 'Original') && (
-                        <Check size={14} />
-                      )}
-                    </button>
+                    {(() => {
+                      const v1080 = variants?.find(
+                        (v) => v.name.toLowerCase().endsWith('.mp4') && v.name.toLowerCase().includes('1080p')
+                      );
+                      const is1080Active =
+                        !isAutoQuality && (currentResolution === '1080p' || currentResolution === 'Original');
+
+                      // 1. If 1080p MP4 variant exists, stream that MP4 variant
+                      if (v1080) {
+                        return (
+                          <button
+                            key="1080p"
+                            type="button"
+                            onClick={() => handleResolutionClick('1080p', getDownloadUrl(v1080.id), false)}
+                            style={{
+                              background: is1080Active ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                              color: is1080Active ? '#38bdf8' : '#e2e8f0',
+                              border: 'none',
+                              padding: '6px 8px',
+                              borderRadius: 8,
+                              fontSize: 12,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              textAlign: 'left',
+                              transition: 'background 0.15s',
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontWeight: 600 }}>1080p (Full HD MP4)</div>
+                              {v1080.size_bytes && v1080.size_bytes > 0 && (
+                                <div style={{ fontSize: 10.5, color: '#94a3b8' }}>{formatBytes(v1080.size_bytes)}</div>
+                              )}
+                            </div>
+                            {is1080Active && <Check size={14} />}
+                          </button>
+                        );
+                      }
+
+                      // 2. If the original file is directly streamable in browser (!isMkv)
+                      if (!isMkv && fileId) {
+                        return (
+                          <button
+                            key="1080p"
+                            type="button"
+                            onClick={() => handleResolutionClick('1080p', getDownloadUrl(fileId), false)}
+                            style={{
+                              background: is1080Active ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                              color: is1080Active ? '#38bdf8' : '#e2e8f0',
+                              border: 'none',
+                              padding: '6px 8px',
+                              borderRadius: 8,
+                              fontSize: 12,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              textAlign: 'left',
+                              transition: 'background 0.15s',
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontWeight: 600 }}>1080p (Asli / Full HD)</div>
+                              {fileSize > 0 && <div style={{ fontSize: 10.5, color: '#94a3b8' }}>{formatBytes(fileSize)}</div>}
+                            </div>
+                            {is1080Active && <Check size={14} />}
+                          </button>
+                        );
+                      }
+
+                      // 3. Original file is MKV without a 1080p MP4 variant:
+                      // Browsers cannot decode MKV; offer download instead of crashing player with 403 or decode error
+                      return (
+                        <div
+                          key="1080p"
+                          style={{
+                            padding: '6px 8px',
+                            borderRadius: 8,
+                            background: 'rgba(255, 255, 255, 0.03)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontSize: 12, fontWeight: 500, color: '#94a3b8' }}>1080p (File Asli MKV)</div>
+                            <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>
+                              Format MKV butuh VLC di PC/HP
+                            </div>
+                          </div>
+                          <a
+                            href={fileId ? getDownloadUrl(fileId) : '#'}
+                            download={fileName}
+                            onClick={() => setShowQualityMenu(false)}
+                            title="Unduh file asli MKV untuk ditonton di VLC Player"
+                            style={{
+                              fontSize: 11,
+                              color: '#38bdf8',
+                              background: 'rgba(56, 189, 248, 0.12)',
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                              fontWeight: 600,
+                              textDecoration: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            <Download size={12} /> Unduh
+                          </a>
+                        </div>
+                      );
+                    })()}
 
                     {/* Standard Resolutions: 720p, 480p, 360p */}
                     {(['720p', '480p', '360p'] as const).map((res) => {
@@ -1442,6 +1559,8 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                     {variants
                       ?.filter(
                         (v) =>
+                          v.name.toLowerCase().endsWith('.mp4') &&
+                          !v.name.toLowerCase().includes('1080p') &&
                           !v.name.toLowerCase().includes('720p') &&
                           !v.name.toLowerCase().includes('480p') &&
                           !v.name.toLowerCase().includes('360p')
