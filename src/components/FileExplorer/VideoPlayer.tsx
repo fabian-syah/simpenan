@@ -90,7 +90,8 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   // Position restore when mounting initial file
   const savedTimeRef = useRef<number>(0);
   const wasPlayingRef = useRef<boolean>(false);
-  const prevPropUrlRef = useRef<string>(url);
+  const activeFileKey = fileId || fileName;
+  const prevFileKeyRef = useRef<string>(activeFileKey);
   const [failedUrls, setFailedUrls] = useState<string[]>([]);
   const autoPlayedForFileRef = useRef<string | null>(null);
 
@@ -100,24 +101,21 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   }, [activeSlot]);
 
 
-  // Sync with prop URL when a different file is selected
+  // Sync with prop when a DIFFERENT file is selected
   useEffect(() => {
-    if (url && url !== prevPropUrlRef.current) {
-      prevPropUrlRef.current = url;
+    if (activeFileKey && activeFileKey !== prevFileKeyRef.current) {
+      prevFileKeyRef.current = activeFileKey;
       setFailedUrls([]);
       autoPlayedForFileRef.current = null;
-      // If neither slot matches the new URL, reset to slot 0
-      if (url0 !== url && url1 !== url) {
-        setUrl0(url);
-        setUrl1('');
-        setActiveSlot(0);
-        setIsBuffering(true);
-        setHasError(false);
-        setIsSwitchingRes(false);
-        setTargetResLabel(null);
-      }
+      setUrl0(url);
+      setUrl1('');
+      setActiveSlot(0);
+      setIsBuffering(true);
+      setHasError(false);
+      setIsSwitchingRes(false);
+      setTargetResLabel(null);
     }
-  }, [url, url0, url1]);
+  }, [activeFileKey, url]);
 
   const hideControlsTimer = useRef<number | null>(null);
 
@@ -133,14 +131,11 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     if (autoPlayedForFileRef.current === fileKey) return;
 
     if (isMkv) {
-      const validVariants = variants.filter(
-        (v) => !failedUrls.includes(getDownloadUrl(v.id))
-      );
       const best =
-        validVariants.find((v) => v.name.toLowerCase().includes('720p')) ||
-        validVariants.find((v) => v.name.toLowerCase().includes('480p')) ||
-        validVariants.find((v) => v.name.toLowerCase().includes('360p')) ||
-        validVariants[0];
+        variants.find((v) => v.name.toLowerCase().includes('720p')) ||
+        variants.find((v) => v.name.toLowerCase().includes('480p')) ||
+        variants.find((v) => v.name.toLowerCase().includes('360p')) ||
+        variants[0];
 
       if (best) {
         const bestUrl = getDownloadUrl(best.id);
@@ -157,7 +152,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         onSelectResolution?.(resLabel, bestUrl);
       }
     }
-  }, [isMkv, variants, fileId, fileName, failedUrls, onSelectResolution]);
+  }, [isMkv, variants, fileId, fileName, onSelectResolution]);
 
   // Handle Play/Pause on Active Video
   const togglePlay = useCallback(() => {

@@ -41,41 +41,27 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
   const [variants, setVariants] = useState<Array<{ id: string; name: string; size_bytes?: number }>>([]);
   const [activeResolution, setActiveResolution] = useState<string>('Original');
   const [activeUrl, setActiveUrl] = useState<string>(getDownloadUrl(file.id));
-
-  const isMkv = file.name.toLowerCase().endsWith('.mkv') || (file.mime_type ? file.mime_type.includes('matroska') : false);
-
   // Load existing variants with auto-refresh while modal is open
   const loadVariants = useCallback(async () => {
     if (!isVideo) return;
     try {
       const list = await fetchVariants(file.id);
       setVariants(list || []);
-
-      // If playing an unplayable format like MKV and variants exist, auto-switch to 720p or best MP4
-      if (isMkv && list && list.length > 0) {
-        const best = list.find((v) => v.name.includes('720p')) || list.find((v) => v.name.includes('480p')) || list[0];
-        if (best) {
-          const match = best.name.match(/(720p|480p|360p)/i);
-          const resLabel = match ? match[1] : '720p';
-          setActiveUrl(getDownloadUrl(best.id));
-          setActiveResolution(resLabel);
-        }
-      }
       return list;
     } catch (err) {
       console.error('Failed to load variants:', err);
     }
-  }, [file.id, isVideo, isMkv]);
+  }, [file.id, isVideo]);
 
   useEffect(() => {
     loadVariants();
-    // Auto-poll every 2.5 seconds while open until all 3 variants (720p, 480p, 360p) are ready
+    // Auto-poll every 3 seconds while open until all 3 variants (720p, 480p, 360p) are ready
     const interval = setInterval(async () => {
       const list = await loadVariants();
       if (list && list.length >= 3) {
         clearInterval(interval);
       }
-    }, 2500);
+    }, 3000);
     return () => clearInterval(interval);
   }, [loadVariants]);
 
@@ -85,9 +71,8 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
     setActiveResolution('Original');
   }, [file.id]);
 
-  const handleSelectResolution = useCallback((res: string, targetUrl: string) => {
+  const handleSelectResolution = useCallback((res: string) => {
     setActiveResolution(res);
-    setActiveUrl(targetUrl);
   }, []);
 
   // Photo viewer state
