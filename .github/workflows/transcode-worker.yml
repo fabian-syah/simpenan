@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install System FFmpeg
@@ -35,4 +35,4 @@ jobs:
           printf "%s\n" "$ENV_CONTENT" > .env
 
       - name: Run Transcoder Batch
-        run: npx tsx --env-file=.env scripts/worker.ts --once
+        run: node --env-file=.env node_modules/tsx/dist/cli.mjs scripts/worker.ts --once

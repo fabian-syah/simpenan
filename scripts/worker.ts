@@ -12,12 +12,19 @@ import { Readable } from 'node:stream';
 import { createClient } from '@supabase/supabase-js';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import http from 'node:http';
-import ffmpegPath from 'ffmpeg-static';
+import { createRequire } from 'node:module';
 
-// Check FFmpeg binary
-if (!ffmpegPath) {
-  console.error('[Worker] Fatal Error: ffmpeg-static binary not found!');
-  process.exit(1);
+const require = createRequire(import.meta.url);
+
+// Robust FFmpeg binary resolution: Use ffmpeg-static if available, fallback to system 'ffmpeg'
+let ffmpegPath = 'ffmpeg';
+try {
+  const staticPath = require('ffmpeg-static');
+  if (typeof staticPath === 'string' && fs.existsSync(staticPath)) {
+    ffmpegPath = staticPath;
+  }
+} catch {
+  ffmpegPath = 'ffmpeg';
 }
 
 // ------------------------------------------------------------
