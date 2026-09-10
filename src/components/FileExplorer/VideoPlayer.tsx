@@ -306,12 +306,15 @@ export const VideoPlayer = React.memo(function VideoPlayer({
 
   // Track video events for both slots
   const handleVideoPlay = (slot: 0 | 1) => {
-    if (slot === activeSlot) {
+    if (slot === activeSlot || isSwitchingRes || isSwappingRef.current) {
       setIsPlaying(true);
     }
   };
 
   const handleVideoPause = (slot: 0 | 1) => {
+    // If we are currently hot-swapping resolutions, pausing the old video MUST NOT pause UI playback!
+    if (isSwitchingRes || isSwappingRef.current) return;
+
     if (slot === activeSlot) {
       setIsPlaying(false);
     }
@@ -336,8 +339,9 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   };
 
   const handleVideoPlaying = (slot: 0 | 1) => {
-    if (slot === activeSlot) {
+    if (slot === activeSlot || isSwitchingRes) {
       setIsBuffering(false);
+      setIsPlaying(true);
     }
   };
 
@@ -373,63 +377,78 @@ export const VideoPlayer = React.memo(function VideoPlayer({
 
   const isSwappingRef = useRef(false);
 
-  // Perform seamless hot-swap when standby video has buffered frames
-  const performHotSwap = useCallback((standbySlot: 0 | 1) => {
-    if (!isSwitchingRes || isSwappingRef.current) return;
+  // Perform seamless hot-swap when standby video has buffered frames and completed seeking
+  const executeHotSwapHandoff = useCallback(
+    (standbySlot: 0 | 1) => {
+      if (!isSwitchingRes || isSwappingRef.current) return;
 
-    const standbyVid = standbySlot === 0 ? videoRef0.current : videoRef1.current;
-    const activeVid = activeSlot === 0 ? videoRef0.current : videoRef1.current;
-    if (!standbyVid || !activeVid) return;
+      const standbyVid = standbySlot === 0 ? videoRef0.current : videoRef1.current;
+      const activeVid = activeSlot === 0 ? videoRef0.current : videoRef1.current;
+      if (!standbyVid || !activeVid) return;
 
-    isSwappingRef.current = true;
-
-    // Only sync timestamp if drift is significant (> 0.5s) to avoid discarding buffered frames
-    if (Math.abs(standbyVid.currentTime - activeVid.currentTime) > 0.5) {
-      standbyVid.currentTime = activeVid.currentTime;
-    }
-    standbyVid.playbackRate = activeVid.playbackRate;
-
-    const wasActivePlaying = !activeVid.paused && !activeVid.ended;
-
-    const finishSwap = () => {
-      activeVid.pause();
-      activeVid.muted = true;
-      setActiveSlot(standbySlot);
-      setIsSwitchingRes(false);
-      isSwappingRef.current = false;
-      if (targetResLabel) {
-        onSelectResolution?.(targetResLabel, standbyVid.src);
-        setTargetResLabel(null);
+      // Standby must NOT be currently seeking and must have readyState >= 2 (HAVE_CURRENT_DATA)
+      if (standbyVid.seeking || standbyVid.readyState < 2) {
+        return;
       }
-    };
 
-    if (wasActivePlaying) {
-      standbyVid.muted = activeVid.muted;
-      standbyVid.volume = activeVid.volume;
-      standbyVid.play().then(finishSwap).catch((playErr) => {
-        console.warn('Standby play error, executing fallback swap:', playErr);
-        finishSwap();
-      });
-    } else {
-      // Was paused: simply transfer state and swap
-      standbyVid.muted = activeVid.muted;
-      standbyVid.volume = activeVid.volume;
-      standbyVid.pause();
-      finishSwap();
-    }
-  }, [isSwitchingRes, activeSlot, targetResLabel, onSelectResolution]);
+      // If active video moved ahead significantly (> 1.5s), seek standby and wait for onSeeked
+      const drift = Math.abs(standbyVid.currentTime - activeVid.currentTime);
+      if (drift > 1.5) {
+        standbyVid.currentTime = activeVid.currentTime;
+        return;
+      }
+
+      isSwappingRef.current = true;
+      const wasActivePlaying = !activeVid.paused && !activeVid.ended;
+
+      const finalize = () => {
+        activeVid.pause();
+        activeVid.muted = true;
+        setActiveSlot(standbySlot);
+        setIsPlaying(wasActivePlaying);
+        setIsSwitchingRes(false);
+        isSwappingRef.current = false;
+        if (targetResLabel) {
+          onSelectResolution?.(targetResLabel, standbyVid.src);
+          setTargetResLabel(null);
+        }
+      };
+
+      if (wasActivePlaying) {
+        standbyVid.muted = activeVid.muted;
+        standbyVid.volume = activeVid.volume;
+        standbyVid.playbackRate = activeVid.playbackRate;
+        standbyVid
+          .play()
+          .then(() => {
+            finalize();
+          })
+          .catch((playErr) => {
+            console.warn('Standby play error, executing fallback swap:', playErr);
+            finalize();
+          });
+      } else {
+        standbyVid.muted = activeVid.muted;
+        standbyVid.volume = activeVid.volume;
+        standbyVid.playbackRate = activeVid.playbackRate;
+        standbyVid.pause();
+        finalize();
+      }
+    },
+    [isSwitchingRes, activeSlot, targetResLabel, onSelectResolution]
+  );
 
   const handleVideoCanPlay = (slot: 0 | 1) => {
     if (slot === activeSlot) {
       setIsBuffering(false);
     } else if (isSwitchingRes && !isSwappingRef.current) {
-      performHotSwap(slot);
+      executeHotSwapHandoff(slot);
     }
   };
 
   const handleVideoSeeked = (slot: 0 | 1) => {
     if (slot !== activeSlot && isSwitchingRes && !isSwappingRef.current) {
-      performHotSwap(slot);
+      executeHotSwapHandoff(slot);
     }
   };
 
