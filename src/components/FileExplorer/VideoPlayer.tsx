@@ -43,6 +43,180 @@ function formatTime(seconds: number): string {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
+const controlBtnStyle: React.CSSProperties = {
+  background: 'transparent',
+  border: 'none',
+  color: '#e2e8f0',
+  cursor: 'pointer',
+  padding: '6px',
+  borderRadius: '8px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  transition: 'color 0.2s, background 0.2s',
+};
+
+interface SleepTimerControlProps {
+  isOpen: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  onTimerExpired: () => void;
+  onSelectEndMode: (enabled: boolean) => void;
+}
+
+// Self-contained SleepTimerControl so 1s interval does NOT re-render the VideoPlayer or video element
+const SleepTimerControl = React.memo(function SleepTimerControl({
+  isOpen,
+  onToggle,
+  onClose,
+  onTimerExpired,
+  onSelectEndMode,
+}: SleepTimerControlProps) {
+  const [option, setOption] = useState<number | 'end' | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+
+  const isTimerRunning = secondsLeft !== null;
+
+  useEffect(() => {
+    if (!isTimerRunning) return;
+
+    const interval = window.setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev === null || prev <= 1) {
+          onTimerExpired();
+          setOption(null);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isTimerRunning, onTimerExpired]);
+
+  const selectOption = (choice: number | 'end' | null) => {
+    setOption(choice);
+    onClose();
+    if (choice === 'end') {
+      onSelectEndMode(true);
+      setSecondsLeft(null);
+    } else if (typeof choice === 'number') {
+      onSelectEndMode(false);
+      setSecondsLeft(choice * 60);
+    } else {
+      onSelectEndMode(false);
+      setSecondsLeft(null);
+    }
+  };
+
+  const formattedTime =
+    secondsLeft !== null
+      ? `${Math.floor(secondsLeft / 60)}:${(secondsLeft % 60).toString().padStart(2, '0')}`
+      : option === 'end'
+      ? 'End'
+      : 'Timer';
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={onToggle}
+        style={{
+          ...controlBtnStyle,
+          fontSize: 12,
+          fontWeight: 600,
+          padding: '3px 8px',
+          borderRadius: 6,
+          background: option !== null ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255,255,255,0.1)',
+          color: option !== null ? '#38bdf8' : '#e2e8f0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 5,
+        }}
+        title="Sleep Timer Video"
+      >
+        <Moon size={14} />
+        <span>{formattedTime}</span>
+      </button>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 36,
+            right: 0,
+            background: 'rgba(15, 23, 42, 0.96)',
+            border: '1px solid rgba(56, 189, 248, 0.25)',
+            borderRadius: 12,
+            padding: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+            zIndex: 25,
+            backdropFilter: 'blur(16px)',
+            minWidth: 175,
+            boxShadow: '0 12px 30px rgba(0, 0, 0, 0.7)',
+          }}
+        >
+          <div style={{ padding: '4px 8px 6px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: '#38bdf8',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <Timer size={13} />
+              <span>Sleep Timer</span>
+            </div>
+            <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 1 }}>
+              Jeda video otomatis saat tidur
+            </div>
+          </div>
+
+          {[
+            { label: 'Nonaktif (Off)', value: null },
+            { label: '15 Menit', value: 15 },
+            { label: '30 Menit', value: 30 },
+            { label: '45 Menit', value: 45 },
+            { label: '60 Menit (1 Jam)', value: 60 },
+            { label: 'Saat Video Selesai', value: 'end' as const },
+          ].map((opt) => {
+            const isActive = option === opt.value;
+            return (
+              <button
+                key={String(opt.value)}
+                type="button"
+                onClick={() => selectOption(opt.value)}
+                style={{
+                  background: isActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                  color: isActive ? '#38bdf8' : '#e2e8f0',
+                  border: 'none',
+                  padding: '6px 8px',
+                  borderRadius: 8,
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <span>{opt.label}</span>
+                {isActive && <Check size={13} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+});
+
 export const VideoPlayer = React.memo(function VideoPlayer({
   url,
   fileName,
@@ -125,11 +299,10 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   const isPipSupported = typeof document !== 'undefined' && 'pictureInPictureEnabled' in document && document.pictureInPictureEnabled;
   const [isPipActive, setIsPipActive] = useState(false);
 
-  // Sleep Timer State
-  const [sleepTimerOption, setSleepTimerOption] = useState<number | 'end' | null>(null);
-  const [sleepTimerSecondsLeft, setSleepTimerSecondsLeft] = useState<number | null>(null);
+  // Sleep Timer State (Isolated in SleepTimerControl to prevent root re-renders)
   const [showSleepMenu, setShowSleepMenu] = useState(false);
   const [isSleepOverlayActive, setIsSleepOverlayActive] = useState(false);
+  const isSleepEndModeRef = useRef(false);
 
   // Subtitle Customization State (Sync & Styling)
   const [subTab, setSubTab] = useState<'tracks' | 'sync' | 'style'>('tracks');
@@ -306,6 +479,10 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     setShowControls(true);
     if (hideControlsTimer.current) window.clearTimeout(hideControlsTimer.current);
 
+    if (showSpeedMenu || showQualityMenu || showSubMenu || showSleepMenu) {
+      return;
+    }
+
     if (isPlaying) {
       hideControlsTimer.current = window.setTimeout(() => {
         setShowControls(false);
@@ -315,7 +492,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         setShowSleepMenu(false);
       }, 2500);
     }
-  }, [isPlaying]);
+  }, [isPlaying, showSpeedMenu, showQualityMenu, showSubMenu, showSleepMenu]);
 
   // Toggle Picture-in-Picture
   const togglePip = useCallback(async () => {
@@ -352,36 +529,13 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     };
   }, []);
 
-  // Sleep Timer Countdown Effect
-  useEffect(() => {
-    if (sleepTimerSecondsLeft === null) return;
-
-    const interval = window.setInterval(() => {
-      setSleepTimerSecondsLeft((prev) => {
-        if (prev === null || prev <= 1) {
-          const vid = getActiveVideo();
-          if (vid) vid.pause();
-          setIsPlaying(false);
-          setIsSleepOverlayActive(true);
-          setSleepTimerOption(null);
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [sleepTimerSecondsLeft === null, getActiveVideo]);
-
-  const setSleepTimer = useCallback((choice: number | 'end' | null) => {
-    setSleepTimerOption(choice);
-    setShowSleepMenu(false);
-    if (typeof choice === 'number') {
-      setSleepTimerSecondsLeft(choice * 60);
-    } else {
-      setSleepTimerSecondsLeft(null);
-    }
-  }, []);
+  // Sleep Timer Expiration Handler
+  const handleSleepTimerExpired = useCallback(() => {
+    const vid = getActiveVideo();
+    if (vid) vid.pause();
+    setIsPlaying(false);
+    setIsSleepOverlayActive(true);
+  }, [getActiveVideo]);
 
   // Subtitle Delay and Style Handlers
   const adjustSubDelay = useCallback((delta: number) => {
@@ -540,10 +694,9 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       try {
         localStorage.removeItem(playbackStorageKey);
       } catch {}
-      if (sleepTimerOption === 'end') {
+      if (isSleepEndModeRef.current) {
+        isSleepEndModeRef.current = false;
         setIsSleepOverlayActive(true);
-        setSleepTimerOption(null);
-        setSleepTimerSecondsLeft(null);
       }
     }
   };
@@ -886,6 +1039,50 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const bufferPercent = duration > 0 ? (bufferedEnd / duration) * 100 : 0;
 
+  const containerStyle = useMemo<React.CSSProperties>(() => ({
+    position: 'relative',
+    width: '100%',
+    maxWidth: '1200px',
+    maxHeight: '85vh',
+    aspectRatio: '16/9',
+    backgroundColor: '#000000',
+    borderRadius: '16px',
+    overflow: 'hidden',
+    boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ['--sub-font-size' as any]: subFontSize === 'small' ? '14px' : subFontSize === 'large' ? '23px' : '18px',
+    ['--sub-color' as any]: subColor,
+    ['--sub-bg' as any]: subBg === 'none' ? 'transparent' : subBg === 'solid' ? '#000000' : 'rgba(0, 0, 0, 0.75)',
+  }), [subFontSize, subColor, subBg]);
+
+  const slot0Style = useMemo<React.CSSProperties>(() => ({
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain',
+    cursor: 'pointer',
+    opacity: activeSlot === 0 ? 1 : 0,
+    pointerEvents: activeSlot === 0 ? 'auto' : 'none',
+    zIndex: activeSlot === 0 ? 2 : 1,
+    transition: 'opacity 0.15s ease-in-out',
+  }), [activeSlot]);
+
+  const slot1Style = useMemo<React.CSSProperties>(() => ({
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain',
+    cursor: 'pointer',
+    opacity: activeSlot === 1 ? 1 : 0,
+    pointerEvents: activeSlot === 1 ? 'auto' : 'none',
+    zIndex: activeSlot === 1 ? 2 : 1,
+    transition: 'opacity 0.15s ease-in-out',
+  }), [activeSlot]);
+
   return (
     <div
       ref={containerRef}
@@ -894,23 +1091,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       onMouseLeave={() => {
         if (isPlaying) setShowControls(false);
       }}
-      style={{
-        position: 'relative',
-        width: '100%',
-        maxWidth: '1200px',
-        maxHeight: '85vh',
-        aspectRatio: '16/9',
-        backgroundColor: '#000000',
-        borderRadius: '16px',
-        overflow: 'hidden',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        ['--sub-font-size' as any]: subFontSize === 'small' ? '14px' : subFontSize === 'large' ? '23px' : '18px',
-        ['--sub-color' as any]: subColor,
-        ['--sub-bg' as any]: subBg === 'none' ? 'transparent' : subBg === 'solid' ? '#000000' : 'rgba(0, 0, 0, 0.75)',
-      }}
+      style={containerStyle}
     >
       {/* Auto-Resume Playback Toast Notification */}
       {resumeToast && (
@@ -1066,18 +1247,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
             onPlaying={() => handleVideoPlaying(0)}
             onError={() => handleVideoError(0)}
             onEnded={() => handleVideoEnded(0)}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain',
-              cursor: 'pointer',
-              opacity: activeSlot === 0 ? 1 : 0,
-              pointerEvents: activeSlot === 0 ? 'auto' : 'none',
-              zIndex: activeSlot === 0 ? 2 : 1,
-              transition: 'opacity 0.15s ease-in-out',
-            }}
+            style={slot0Style}
           >
             {selectedSubIndex >= 0 && subtitles[selectedSubIndex] && (
               <track
@@ -1108,18 +1278,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
             onPlaying={() => handleVideoPlaying(1)}
             onError={() => handleVideoError(1)}
             onEnded={() => handleVideoEnded(1)}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain',
-              cursor: 'pointer',
-              opacity: activeSlot === 1 ? 1 : 0,
-              pointerEvents: activeSlot === 1 ? 'auto' : 'none',
-              zIndex: activeSlot === 1 ? 2 : 1,
-              transition: 'opacity 0.15s ease-in-out',
-            }}
+            style={slot1Style}
           >
             {selectedSubIndex >= 0 && subtitles[selectedSubIndex] && (
               <track
@@ -2347,103 +2506,20 @@ export const VideoPlayer = React.memo(function VideoPlayer({
               </div>
 
               {/* Sleep Timer */}
-              <div style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSleepMenu(!showSleepMenu);
-                    setShowSpeedMenu(false);
-                    setShowQualityMenu(false);
-                    setShowSubMenu(false);
-                  }}
-                  style={{
-                    ...controlBtnStyle,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    padding: '3px 8px',
-                    borderRadius: 6,
-                    background: sleepTimerOption !== null ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255,255,255,0.1)',
-                    color: sleepTimerOption !== null ? '#38bdf8' : '#e2e8f0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 5,
-                  }}
-                  title="Sleep Timer Video"
-                >
-                  <Moon size={14} />
-                  <span>
-                    {sleepTimerSecondsLeft !== null
-                      ? `${Math.floor(sleepTimerSecondsLeft / 60)}:${(sleepTimerSecondsLeft % 60).toString().padStart(2, '0')}`
-                      : sleepTimerOption === 'end'
-                      ? 'End'
-                      : 'Timer'}
-                  </span>
-                </button>
-
-                {showSleepMenu && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: 36,
-                      right: 0,
-                      background: 'rgba(15, 23, 42, 0.96)',
-                      border: '1px solid rgba(56, 189, 248, 0.25)',
-                      borderRadius: 12,
-                      padding: '8px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 4,
-                      zIndex: 25,
-                      backdropFilter: 'blur(16px)',
-                      minWidth: 175,
-                      boxShadow: '0 12px 30px rgba(0, 0, 0, 0.7)',
-                    }}
-                  >
-                    <div style={{ padding: '4px 8px 6px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Timer size={13} />
-                        <span>Sleep Timer</span>
-                      </div>
-                      <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 1 }}>
-                        Jeda video otomatis saat tidur
-                      </div>
-                    </div>
-
-                    {[
-                      { label: 'Nonaktif (Off)', value: null },
-                      { label: '15 Menit', value: 15 },
-                      { label: '30 Menit', value: 30 },
-                      { label: '45 Menit', value: 45 },
-                      { label: '60 Menit (1 Jam)', value: 60 },
-                      { label: 'Saat Video Selesai', value: 'end' as const },
-                    ].map((opt) => {
-                      const isActive = sleepTimerOption === opt.value;
-                      return (
-                        <button
-                          key={String(opt.value)}
-                          type="button"
-                          onClick={() => setSleepTimer(opt.value)}
-                          style={{
-                            background: isActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                            color: isActive ? '#38bdf8' : '#e2e8f0',
-                            border: 'none',
-                            padding: '6px 8px',
-                            borderRadius: 8,
-                            fontSize: 12,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                          }}
-                        >
-                          <span>{opt.label}</span>
-                          {isActive && <Check size={13} />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              <SleepTimerControl
+                isOpen={showSleepMenu}
+                onToggle={() => {
+                  setShowSleepMenu((prev) => !prev);
+                  setShowSpeedMenu(false);
+                  setShowQualityMenu(false);
+                  setShowSubMenu(false);
+                }}
+                onClose={() => setShowSleepMenu(false)}
+                onTimerExpired={handleSleepTimerExpired}
+                onSelectEndMode={(enabled) => {
+                  isSleepEndModeRef.current = enabled;
+                }}
+              />
 
               {/* Picture-in-Picture (PiP) */}
               {isPipSupported && (
@@ -2476,16 +2552,3 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     </div>
   );
 });
-
-const controlBtnStyle: React.CSSProperties = {
-  background: 'transparent',
-  border: 'none',
-  color: '#e2e8f0',
-  cursor: 'pointer',
-  padding: '6px',
-  borderRadius: '8px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  transition: 'color 0.2s, background 0.2s',
-};

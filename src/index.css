@@ -1707,14 +1707,14 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
 @keyframes cvSleepFadeIn {
   from {
     opacity: 0;
-    backdrop-filter: blur(0px);
   }
   to {
     opacity: 1;
-    backdrop-filter: blur(16px);
   }
 }
 
 .cv-sleep-overlay {
-  animation: cvSleepFadeIn 0.35s ease forwards;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: cvSleepFadeIn 0.3s ease forwards;
 }
