@@ -5,16 +5,23 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { supabaseAdmin } from '../_lib/supabase.js';
 import { completeMultipartUpload } from '../_lib/storage-providers.js';
+import { triggerTranscodeWorker } from '../_lib/transcode-trigger.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { fileId, uploadId, parts, storageKey } = req.body;
+    const { fileId, uploadId, parts, storageKey, action } = req.body;
 
     if (!fileId) {
       return res.status(400).json({ error: 'fileId is required' });
+    }
+
+    // Direct manual trigger action
+    if (action === 'trigger_transcode') {
+      const triggerResult = await triggerTranscodeWorker(fileId);
+      return res.status(200).json(triggerResult);
     }
 
     // Fetch the file record
@@ -73,6 +80,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('id', file.provider_id);
     } catch (quotaErr) {
       console.warn('Quota update error:', quotaErr);
+    }
+
+    // If uploaded file is a video, trigger cloud transcoding immediately
+    const isVideo = file.mime_type?.toLowerCase().startsWith('video/') ||
+      /\.(mp4|mkv|avi|mov|webm|flv|wmv|m4v|ts)$/i.test(file.name);
+    if (isVideo) {
+      triggerTranscodeWorker(fileId).catch((e) => console.warn('[TranscodeTrigger] Async error:', e));
     }
 
     return res.status(200).json({ success: true, fileId });

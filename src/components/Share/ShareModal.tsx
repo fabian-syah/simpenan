@@ -16,16 +16,17 @@ interface ShareModalProps {
 export function ShareModal({ file, onClose }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
 
-  if (!file) return null;
-
-  const shareUrl = `${window.location.origin}/share/${file.id}`;
+  const shareUrl = file ? `${typeof window !== 'undefined' ? window.location.origin : ''}/share/${file.id}` : '';
 
   const handleCopy = useCallback(() => {
+    if (!shareUrl) return;
     navigator.clipboard.writeText(shareUrl).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     });
   }, [shareUrl]);
+
+  if (!file) return null;
 
   return (
     <div

@@ -52,8 +52,14 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   currentResolution = '1080p',
   onSelectResolution,
 }: VideoPlayerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // Dual-Video Seamless Hot-Swap Architecture (YouTube-style instant switching)
+  const videoRef0 = useRef<HTMLVideoElement>(null);
+  const videoRef1 = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const [activeSlot, setActiveSlot] = useState<0 | 1>(0);
+  const [url0, setUrl0] = useState<string>(url);
+  const [url1, setUrl1] = useState<string>('');
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -74,22 +80,40 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showControls, setShowControls] = useState(true);
 
-  // Position restore when switching resolution seamlessly
+  // Seamless Hot-Swap State
+  const [isSwitchingRes, setIsSwitchingRes] = useState(false);
+  const [targetResLabel, setTargetResLabel] = useState<string | null>(null);
+  const [isAutoQuality, setIsAutoQuality] = useState(true);
+  const [isTriggeringWorker, setIsTriggeringWorker] = useState(false);
+  const [triggerSuccessMsg, setTriggerSuccessMsg] = useState<string | null>(null);
+
+  // Position restore when mounting initial file
   const savedTimeRef = useRef<number>(0);
   const wasPlayingRef = useRef<boolean>(false);
-  const prevUrlRef = useRef<string>(url);
+  const prevPropUrlRef = useRef<string>(url);
 
+  // Helper to get active and standby video elements
+  const getActiveVideo = useCallback(() => {
+    return activeSlot === 0 ? videoRef0.current : videoRef1.current;
+  }, [activeSlot]);
+
+
+  // Sync with prop URL when a different file is selected
   useEffect(() => {
-    if (prevUrlRef.current !== url) {
-      if (videoRef.current) {
-        savedTimeRef.current = videoRef.current.currentTime;
-        wasPlayingRef.current = !videoRef.current.paused;
+    if (url && url !== prevPropUrlRef.current) {
+      prevPropUrlRef.current = url;
+      // If neither slot matches the new URL, reset to slot 0
+      if (url0 !== url && url1 !== url) {
+        setUrl0(url);
+        setUrl1('');
+        setActiveSlot(0);
+        setIsBuffering(true);
+        setHasError(false);
+        setIsSwitchingRes(false);
+        setTargetResLabel(null);
       }
-      prevUrlRef.current = url;
-      setIsBuffering(true);
-      setHasError(false);
     }
-  }, [url]);
+  }, [url, url0, url1]);
 
   const hideControlsTimer = useRef<number | null>(null);
 
@@ -98,9 +122,9 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     return ext === 'mkv' || ext === 'avi' || ext === 'flv' || ext === 'wmv' || (mimeType ? mimeType.includes('matroska') : false);
   }, [fileName, mimeType]);
 
-  // Handle Play/Pause
+  // Handle Play/Pause on Active Video
   const togglePlay = useCallback(() => {
-    const video = videoRef.current;
+    const video = getActiveVideo();
     if (!video) return;
 
     if (video.paused || video.ended) {
@@ -110,55 +134,60 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     } else {
       video.pause();
     }
-  }, []);
+  }, [getActiveVideo]);
 
-  // Handle Seek
+  // Handle Seek on Active Video
   const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const time = parseFloat(e.target.value);
-    if (videoRef.current) {
-      videoRef.current.currentTime = time;
+    const video = getActiveVideo();
+    if (video) {
+      video.currentTime = time;
       setCurrentTime(time);
     }
-  }, []);
+  }, [getActiveVideo]);
 
   // Forward / Rewind 10s
   const skip = useCallback((seconds: number) => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = Math.max(0, Math.min(videoRef.current.currentTime + seconds, duration));
+    const video = getActiveVideo();
+    if (video) {
+      video.currentTime = Math.max(0, Math.min(video.currentTime + seconds, duration));
     }
-  }, [duration]);
+  }, [getActiveVideo, duration]);
 
   // Handle Volume Change
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newVol = parseFloat(e.target.value);
     setVolume(newVol);
-    if (videoRef.current) {
-      videoRef.current.volume = newVol;
-      videoRef.current.muted = newVol === 0;
+    const video = getActiveVideo();
+    if (video) {
+      video.volume = newVol;
+      video.muted = newVol === 0;
       setIsMuted(newVol === 0);
     }
-  }, []);
+  }, [getActiveVideo]);
 
   const toggleMute = useCallback(() => {
-    if (!videoRef.current) return;
+    const video = getActiveVideo();
+    if (!video) return;
     if (isMuted) {
-      videoRef.current.muted = false;
-      videoRef.current.volume = volume > 0 ? volume : 0.5;
+      video.muted = false;
+      video.volume = volume > 0 ? volume : 0.5;
       setIsMuted(false);
     } else {
-      videoRef.current.muted = true;
+      video.muted = true;
       setIsMuted(true);
     }
-  }, [isMuted, volume]);
+  }, [getActiveVideo, isMuted, volume]);
 
   // Handle Playback Rate
   const changePlaybackRate = useCallback((rate: number) => {
     setPlaybackRate(rate);
-    if (videoRef.current) {
-      videoRef.current.playbackRate = rate;
+    const video = getActiveVideo();
+    if (video) {
+      video.playbackRate = rate;
     }
     setShowSpeedMenu(false);
-  }, []);
+  }, [getActiveVideo]);
 
   // Handle Fullscreen
   const toggleFullscreen = useCallback(() => {
@@ -212,12 +241,14 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         e.preventDefault();
         const next = Math.min(1, volume + 0.1);
         setVolume(next);
-        if (videoRef.current) videoRef.current.volume = next;
+        const video = getActiveVideo();
+        if (video) video.volume = next;
       } else if (e.code === 'ArrowDown') {
         e.preventDefault();
         const next = Math.max(0, volume - 0.1);
         setVolume(next);
-        if (videoRef.current) videoRef.current.volume = next;
+        const video = getActiveVideo();
+        if (video) video.volume = next;
       } else if (e.key === 'm') {
         toggleMute();
       } else if (e.key === 'f') {
@@ -227,36 +258,168 @@ export const VideoPlayer = React.memo(function VideoPlayer({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlay, skip, volume, toggleMute, toggleFullscreen]);
+  }, [togglePlay, skip, volume, toggleMute, toggleFullscreen, getActiveVideo]);
 
-  // Video Event Handlers
-  const handleTimeUpdate = () => {
-    if (!videoRef.current) return;
-    setCurrentTime(videoRef.current.currentTime);
-
-    // Track buffer
-    const buf = videoRef.current.buffered;
-    if (buf.length > 0) {
-      setBufferedEnd(buf.end(buf.length - 1));
+  // Track video events for both slots
+  const handleVideoPlay = (slot: 0 | 1) => {
+    if (slot === activeSlot) {
+      setIsPlaying(true);
     }
   };
 
-  const handleLoadedMetadata = () => {
-    if (!videoRef.current) return;
-    setDuration(videoRef.current.duration);
-    setIsBuffering(false);
-    setHasError(false);
-
-    // Seamlessly restore playback position
-    if (savedTimeRef.current > 0) {
-      const targetTime = Math.min(savedTimeRef.current, videoRef.current.duration || savedTimeRef.current);
-      videoRef.current.currentTime = targetTime;
-      setCurrentTime(targetTime);
-      savedTimeRef.current = 0;
+  const handleVideoPause = (slot: 0 | 1) => {
+    if (slot === activeSlot) {
+      setIsPlaying(false);
     }
-    if (wasPlayingRef.current) {
-      videoRef.current.play().catch(() => {});
-      wasPlayingRef.current = false;
+  };
+
+  const handleVideoTimeUpdate = (slot: 0 | 1) => {
+    if (slot === activeSlot) {
+      const vid = slot === 0 ? videoRef0.current : videoRef1.current;
+      if (!vid) return;
+      setCurrentTime(vid.currentTime);
+      const buf = vid.buffered;
+      if (buf.length > 0) {
+        setBufferedEnd(buf.end(buf.length - 1));
+      }
+    }
+  };
+
+  const handleVideoWaiting = (slot: 0 | 1) => {
+    if (slot === activeSlot) {
+      setIsBuffering(true);
+    }
+  };
+
+  const handleVideoPlaying = (slot: 0 | 1) => {
+    if (slot === activeSlot) {
+      setIsBuffering(false);
+    }
+  };
+
+  const handleVideoLoadedMetadata = (slot: 0 | 1) => {
+    const vid = slot === 0 ? videoRef0.current : videoRef1.current;
+    if (!vid) return;
+
+    if (slot === activeSlot) {
+      setDuration(vid.duration);
+      setIsBuffering(false);
+      setHasError(false);
+
+      if (savedTimeRef.current > 0) {
+        const target = Math.min(savedTimeRef.current, vid.duration || savedTimeRef.current);
+        vid.currentTime = target;
+        setCurrentTime(target);
+        savedTimeRef.current = 0;
+      }
+      if (wasPlayingRef.current) {
+        vid.play().catch(() => {});
+        wasPlayingRef.current = false;
+      }
+    } else {
+      // Standby video loaded metadata: align currentTime with active video
+      const activeVid = getActiveVideo();
+      if (activeVid) {
+        vid.currentTime = activeVid.currentTime;
+        vid.playbackRate = activeVid.playbackRate;
+        vid.muted = true; // Stay muted until swap
+      }
+    }
+  };
+
+  // Perform seamless hot-swap when standby video has buffered frames
+  const performHotSwap = useCallback((standbySlot: 0 | 1) => {
+    if (!isSwitchingRes) return;
+
+    const standbyVid = standbySlot === 0 ? videoRef0.current : videoRef1.current;
+    const activeVid = activeSlot === 0 ? videoRef0.current : videoRef1.current;
+    if (!standbyVid || !activeVid) return;
+
+    // Sync precise timestamp right before handoff
+    standbyVid.currentTime = activeVid.currentTime;
+    standbyVid.playbackRate = activeVid.playbackRate;
+
+    const wasActivePlaying = !activeVid.paused && !activeVid.ended;
+
+    if (wasActivePlaying) {
+      standbyVid.muted = activeVid.muted;
+      standbyVid.volume = activeVid.volume;
+      standbyVid.play().then(() => {
+        // Standby playing successfully: pause active and swap
+        activeVid.pause();
+        activeVid.muted = true;
+        setActiveSlot(standbySlot);
+        setIsSwitchingRes(false);
+        if (targetResLabel) {
+          onSelectResolution?.(targetResLabel, standbyVid.src);
+          setTargetResLabel(null);
+        }
+      }).catch((playErr) => {
+        console.warn('Standby play error, executing fallback swap:', playErr);
+        activeVid.pause();
+        setActiveSlot(standbySlot);
+        setIsSwitchingRes(false);
+        if (targetResLabel) {
+          onSelectResolution?.(targetResLabel, standbyVid.src);
+          setTargetResLabel(null);
+        }
+      });
+    } else {
+      // Was paused: simply transfer state and swap
+      standbyVid.muted = activeVid.muted;
+      standbyVid.volume = activeVid.volume;
+      standbyVid.pause();
+      activeVid.muted = true;
+      setActiveSlot(standbySlot);
+      setIsSwitchingRes(false);
+      if (targetResLabel) {
+        onSelectResolution?.(targetResLabel, standbyVid.src);
+        setTargetResLabel(null);
+      }
+    }
+  }, [isSwitchingRes, activeSlot, targetResLabel, onSelectResolution]);
+
+  const handleVideoCanPlay = (slot: 0 | 1) => {
+    if (slot === activeSlot) {
+      setIsBuffering(false);
+    } else if (isSwitchingRes) {
+      performHotSwap(slot);
+    }
+  };
+
+  const handleVideoSeeked = (slot: 0 | 1) => {
+    if (slot !== activeSlot && isSwitchingRes) {
+      performHotSwap(slot);
+    }
+  };
+
+  const handleVideoError = (slot: 0 | 1) => {
+    if (slot === activeSlot) {
+      setIsBuffering(false);
+      setHasError(true);
+      if (isMkv) {
+        setErrorMessage(
+          'Browser tidak mendukung format container .mkv atau codec anime 10-bit secara native. Silakan unduh file untuk diputar di VLC Player.'
+        );
+      } else {
+        setErrorMessage(
+          'Format video ini tidak dapat diputar langsung oleh browser. Silakan unduh file untuk menonton.'
+        );
+      }
+    } else if (isSwitchingRes) {
+      console.warn('Standby video failed to load, cancelling hot-swap');
+      setIsSwitchingRes(false);
+      setTargetResLabel(null);
+    }
+  };
+
+  const retryPlayback = () => {
+    setHasError(false);
+    setIsBuffering(true);
+    const video = getActiveVideo();
+    if (video) {
+      video.load();
+      video.play().catch(() => {});
     }
   };
 
@@ -267,17 +430,84 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     [variants]
   );
 
+  const autoRecommendedRes = useMemo(() => {
+    if (!variants || variants.length === 0) return '1080p';
+    const has720 = variants.some((v) => v.name.toLowerCase().includes('720p'));
+    if (has720) return '720p';
+    const has480 = variants.some((v) => v.name.toLowerCase().includes('480p'));
+    if (has480) return '480p';
+    const has360 = variants.some((v) => v.name.toLowerCase().includes('360p'));
+    if (has360) return '360p';
+    return '1080p';
+  }, [variants]);
+
   const handleResolutionClick = useCallback(
-    (resLabel: string, targetUrl: string) => {
-      if (videoRef.current) {
-        savedTimeRef.current = videoRef.current.currentTime;
-        wasPlayingRef.current = !videoRef.current.paused;
-      }
+    (resLabel: string, targetUrl: string, isAutoChoice = false) => {
       setShowQualityMenu(false);
-      onSelectResolution?.(resLabel, targetUrl);
+      setIsAutoQuality(isAutoChoice);
+
+      const activeVid = getActiveVideo();
+      const currentSlotUrl = activeSlot === 0 ? url0 : url1;
+
+      // If already playing this URL, just report resolution
+      if (targetUrl === currentSlotUrl) {
+        onSelectResolution?.(resLabel, targetUrl);
+        return;
+      }
+
+      // If active video has error or not yet loaded, perform direct swap
+      if (hasError || !activeVid || activeVid.readyState < 2) {
+        savedTimeRef.current = activeVid ? activeVid.currentTime : 0;
+        wasPlayingRef.current = activeVid ? !activeVid.paused : false;
+        if (activeSlot === 0) {
+          setUrl0(targetUrl);
+        } else {
+          setUrl1(targetUrl);
+        }
+        setIsBuffering(true);
+        setHasError(false);
+        onSelectResolution?.(resLabel, targetUrl);
+        return;
+      }
+
+      // INSTANT HOT-SWAP (Active video KEPT PLAYING uninterrupted):
+      setIsSwitchingRes(true);
+      setTargetResLabel(resLabel);
+
+      const standbySlot = activeSlot === 0 ? 1 : 0;
+      if (standbySlot === 0) {
+        setUrl0(targetUrl);
+      } else {
+        setUrl1(targetUrl);
+      }
     },
-    [onSelectResolution]
+    [activeSlot, url0, url1, hasError, getActiveVideo, onSelectResolution]
   );
+
+  const triggerCloudTranscode = useCallback(async () => {
+    if (!fileId || isTriggeringWorker) return;
+    setIsTriggeringWorker(true);
+    setTriggerSuccessMsg(null);
+    try {
+      const res = await fetch('/api/upload/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'trigger_transcode', fileId }),
+      });
+      const data = await res.json();
+      if (data.triggered) {
+        setTriggerSuccessMsg('⚡ Cloud Worker GitHub Actions berhasil dijalankan!');
+      } else {
+        setTriggerSuccessMsg('⏰ Worker otomatis berjalan via cron 5 menit cloud.');
+      }
+      setTimeout(() => setTriggerSuccessMsg(null), 6000);
+    } catch {
+      setTriggerSuccessMsg('Worker dijadwalkan via cron cloud.');
+      setTimeout(() => setTriggerSuccessMsg(null), 4000);
+    } finally {
+      setIsTriggeringWorker(false);
+    }
+  }, [fileId, isTriggeringWorker]);
 
   const handleSubtitleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -295,29 +525,6 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         console.error('Subtitle parse error:', err);
       }
       e.target.value = '';
-    }
-  };
-
-  const handleVideoError = () => {
-    setIsBuffering(false);
-    setHasError(true);
-    if (isMkv) {
-      setErrorMessage(
-        'Browser tidak mendukung format container .mkv atau codec anime 10-bit secara native. Silakan unduh file untuk diputar di VLC Player.'
-      );
-    } else {
-      setErrorMessage(
-        'Format video ini tidak dapat diputar langsung oleh browser. Silakan unduh file untuk menonton.'
-      );
-    }
-  };
-
-  const retryPlayback = () => {
-    setHasError(false);
-    setIsBuffering(true);
-    if (videoRef.current) {
-      videoRef.current.load();
-      videoRef.current.play().catch(() => {});
     }
   };
 
@@ -347,43 +554,95 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         justifyContent: 'center',
       }}
     >
-      {/* HTML5 Native Video Tag */}
+      {/* Dual Video Elements: Slot 0 and Slot 1 for instant, seamless hot-swap */}
       {!hasError && (
-        <video
-          ref={videoRef}
-          src={url}
-          playsInline
-          preload="metadata"
-          onClick={togglePlay}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
-          onWaiting={() => setIsBuffering(true)}
-          onPlaying={() => setIsBuffering(false)}
-          onError={handleVideoError}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-            cursor: 'pointer',
-          }}
-        >
-          {selectedSubIndex >= 0 && subtitles[selectedSubIndex] && (
-            <track
-              key={subtitles[selectedSubIndex].url}
-              kind="subtitles"
-              src={subtitles[selectedSubIndex].url}
-              srcLang="id"
-              label={subtitles[selectedSubIndex].label}
-              default
-            />
-          )}
-        </video>
+        <>
+          {/* Video Slot 0 */}
+          <video
+            ref={videoRef0}
+            src={url0 || undefined}
+            playsInline
+            preload="metadata"
+            onClick={togglePlay}
+            onPlay={() => handleVideoPlay(0)}
+            onPause={() => handleVideoPause(0)}
+            onTimeUpdate={() => handleVideoTimeUpdate(0)}
+            onLoadedMetadata={() => handleVideoLoadedMetadata(0)}
+            onCanPlay={() => handleVideoCanPlay(0)}
+            onSeeked={() => handleVideoSeeked(0)}
+            onWaiting={() => handleVideoWaiting(0)}
+            onPlaying={() => handleVideoPlaying(0)}
+            onError={() => handleVideoError(0)}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              cursor: 'pointer',
+              opacity: activeSlot === 0 ? 1 : 0,
+              pointerEvents: activeSlot === 0 ? 'auto' : 'none',
+              zIndex: activeSlot === 0 ? 2 : 1,
+              transition: 'opacity 0.15s ease-in-out',
+            }}
+          >
+            {selectedSubIndex >= 0 && subtitles[selectedSubIndex] && (
+              <track
+                key={subtitles[selectedSubIndex].url}
+                kind="subtitles"
+                src={subtitles[selectedSubIndex].url}
+                srcLang="id"
+                label={subtitles[selectedSubIndex].label}
+                default
+              />
+            )}
+          </video>
+
+          {/* Video Slot 1 */}
+          <video
+            ref={videoRef1}
+            src={url1 || undefined}
+            playsInline
+            preload="metadata"
+            onClick={togglePlay}
+            onPlay={() => handleVideoPlay(1)}
+            onPause={() => handleVideoPause(1)}
+            onTimeUpdate={() => handleVideoTimeUpdate(1)}
+            onLoadedMetadata={() => handleVideoLoadedMetadata(1)}
+            onCanPlay={() => handleVideoCanPlay(1)}
+            onSeeked={() => handleVideoSeeked(1)}
+            onWaiting={() => handleVideoWaiting(1)}
+            onPlaying={() => handleVideoPlaying(1)}
+            onError={() => handleVideoError(1)}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              cursor: 'pointer',
+              opacity: activeSlot === 1 ? 1 : 0,
+              pointerEvents: activeSlot === 1 ? 'auto' : 'none',
+              zIndex: activeSlot === 1 ? 2 : 1,
+              transition: 'opacity 0.15s ease-in-out',
+            }}
+          >
+            {selectedSubIndex >= 0 && subtitles[selectedSubIndex] && (
+              <track
+                key={subtitles[selectedSubIndex].url}
+                kind="subtitles"
+                src={subtitles[selectedSubIndex].url}
+                srcLang="id"
+                label={subtitles[selectedSubIndex].label}
+                default
+              />
+            )}
+          </video>
+        </>
       )}
 
-      {/* Buffering Spinner */}
-      {isBuffering && !hasError && (
+      {/* Buffering Spinner: Only displayed if the active video is actually stalling, NOT during seamless background hot-swap */}
+      {isBuffering && !isSwitchingRes && !hasError && (
         <div
           style={{
             position: 'absolute',
@@ -882,13 +1141,14 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                 />
               </div>
 
-              {/* Quality / Resolution Selector */}
+              {/* Quality / Resolution Selector (YouTube-style with Auto and instant hot-swap) */}
               <div style={{ position: 'relative' }}>
                 <button
                   type="button"
                   onClick={() => {
                     setShowQualityMenu(!showQualityMenu);
                     setShowSpeedMenu(false);
+                    setShowSubMenu(false);
                   }}
                   style={{
                     ...controlBtnStyle,
@@ -896,16 +1156,27 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                     fontWeight: 600,
                     padding: '3px 8px',
                     borderRadius: 6,
-                    background: showQualityMenu ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255,255,255,0.1)',
-                    color: showQualityMenu ? '#38bdf8' : '#e2e8f0',
+                    background: showQualityMenu || isSwitchingRes ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255,255,255,0.1)',
+                    color: showQualityMenu || isSwitchingRes ? '#38bdf8' : '#e2e8f0',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 5,
                   }}
-                  title="Pilih Resolusi Video"
+                  title="Pilih Resolusi Video (YouTube-Style)"
                 >
                   <SlidersHorizontal size={13} />
-                  <span>{currentResolution || '1080p'}</span>
+                  <span>
+                    {isSwitchingRes && targetResLabel ? (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span className="cv-spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
+                        <span>{targetResLabel}</span>
+                      </span>
+                    ) : isAutoQuality ? (
+                      `Auto (${currentResolution || autoRecommendedRes})`
+                    ) : (
+                      currentResolution || '1080p'
+                    )}
+                  </span>
                 </button>
 
                 {showQualityMenu && (
@@ -923,7 +1194,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                       gap: 4,
                       zIndex: 25,
                       backdropFilter: 'blur(16px)',
-                      minWidth: 230,
+                      minWidth: 240,
                       boxShadow: '0 12px 30px rgba(0, 0, 0, 0.7)',
                     }}
                   >
@@ -931,22 +1202,70 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                       <div style={{ fontSize: 11, fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         Kualitas Video
                       </div>
-                      <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>
-                        Pilih resolusi streaming
+                      <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 1 }}>
+                        Ganti resolusi instan tanpa henti
                       </div>
                     </div>
+
+                    {/* YouTube-style Auto (Optimal) Option */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        let bestUrl = fileId ? getDownloadUrl(fileId) : url;
+                        let bestLabel = '1080p';
+                        const v720 = getVariantForRes('720p');
+                        if (v720) {
+                          bestUrl = getDownloadUrl(v720.id);
+                          bestLabel = '720p';
+                        } else {
+                          const v480 = getVariantForRes('480p');
+                          if (v480) {
+                            bestUrl = getDownloadUrl(v480.id);
+                            bestLabel = '480p';
+                          }
+                        }
+                        handleResolutionClick(bestLabel, bestUrl, true);
+                      }}
+                      style={{
+                        background: isAutoQuality ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                        color: isAutoQuality ? '#38bdf8' : '#e2e8f0',
+                        border: 'none',
+                        padding: '6px 8px',
+                        borderRadius: 8,
+                        fontSize: 12,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        textAlign: 'left',
+                        transition: 'background 0.15s',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>Otomatis / Auto</span>
+                          <span style={{ fontSize: 9.5, background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>
+                            REKOMENDASI
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 10.5, color: '#94a3b8' }}>
+                          Kualitas optimal otomatis ({autoRecommendedRes})
+                        </div>
+                      </div>
+                      {isAutoQuality && <Check size={14} />}
+                    </button>
 
                     {/* 1080p / Original Option */}
                     <button
                       type="button"
-                      onClick={() => fileId && handleResolutionClick('1080p', getDownloadUrl(fileId))}
+                      onClick={() => fileId && handleResolutionClick('1080p', getDownloadUrl(fileId), false)}
                       style={{
                         background:
-                          !currentResolution || currentResolution === '1080p' || currentResolution === 'Original'
+                          !isAutoQuality && (currentResolution === '1080p' || currentResolution === 'Original')
                             ? 'rgba(56, 189, 248, 0.15)'
                             : 'transparent',
                         color:
-                          !currentResolution || currentResolution === '1080p' || currentResolution === 'Original'
+                          !isAutoQuality && (currentResolution === '1080p' || currentResolution === 'Original')
                             ? '#38bdf8'
                             : '#e2e8f0',
                         border: 'none',
@@ -965,7 +1284,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                         <div style={{ fontWeight: 600 }}>1080p (Asli / Full HD)</div>
                         {fileSize > 0 && <div style={{ fontSize: 10.5, color: '#94a3b8' }}>{formatBytes(fileSize)}</div>}
                       </div>
-                      {(!currentResolution || currentResolution === '1080p' || currentResolution === 'Original') && (
+                      {!isAutoQuality && (currentResolution === '1080p' || currentResolution === 'Original') && (
                         <Check size={14} />
                       )}
                     </button>
@@ -973,7 +1292,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                     {/* Standard Resolutions: 720p, 480p, 360p */}
                     {(['720p', '480p', '360p'] as const).map((res) => {
                       const variant = getVariantForRes(res);
-                      const isActive = currentResolution === res;
+                      const isActive = !isAutoQuality && currentResolution === res;
                       const resLabels = {
                         '720p': '720p (HD Ringan)',
                         '480p': '480p (SD Standar)',
@@ -985,7 +1304,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                           <button
                             key={res}
                             type="button"
-                            onClick={() => handleResolutionClick(res, getDownloadUrl(variant.id))}
+                            onClick={() => handleResolutionClick(res, getDownloadUrl(variant.id), false)}
                             style={{
                               background: isActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
                               color: isActive ? '#38bdf8' : '#e2e8f0',
@@ -1027,7 +1346,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                         >
                           <div>
                             <div style={{ fontSize: 12, fontWeight: 500, color: '#94a3b8' }}>{resLabels[res]}</div>
-                            <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>Menyiapkan...</div>
+                            <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>Menyiapkan di Cloud Worker...</div>
                           </div>
                           <span style={{ fontSize: 10, color: '#38bdf8', background: 'rgba(56, 189, 248, 0.1)', padding: '2px 6px', borderRadius: 4, fontWeight: 500 }}>
                             Auto-Worker
@@ -1036,7 +1355,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                       );
                     })}
 
-                    {/* Any other variants that don't match 720/480/360 */}
+                    {/* Any other custom variants */}
                     {variants
                       ?.filter(
                         (v) =>
@@ -1045,12 +1364,12 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                           !v.name.toLowerCase().includes('360p')
                       )
                       .map((v) => {
-                        const isActive = currentResolution === v.name;
+                        const isActive = !isAutoQuality && currentResolution === v.name;
                         return (
                           <button
                             key={v.id}
                             type="button"
-                            onClick={() => handleResolutionClick(v.name, getDownloadUrl(v.id))}
+                            onClick={() => handleResolutionClick(v.name, getDownloadUrl(v.id), false)}
                             style={{
                               background: isActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
                               color: isActive ? '#38bdf8' : '#e2e8f0',
@@ -1070,6 +1389,49 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                           </button>
                         );
                       })}
+
+                    {/* Missing variants accelerator button */}
+                    {variants.length < 3 && (
+                      <div style={{ marginTop: 4, paddingTop: 6, borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                        <button
+                          type="button"
+                          onClick={triggerCloudTranscode}
+                          disabled={isTriggeringWorker}
+                          style={{
+                            width: '100%',
+                            background: 'rgba(56, 189, 248, 0.12)',
+                            border: '1px solid rgba(56, 189, 248, 0.3)',
+                            color: '#38bdf8',
+                            padding: '6px 8px',
+                            borderRadius: 6,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: isTriggeringWorker ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                          }}
+                        >
+                          {isTriggeringWorker ? (
+                            <>
+                              <div className="cv-spinner" style={{ width: 11, height: 11, borderWidth: 1.5 }} />
+                              <span>Memicu Worker Cloud...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>⚡</span>
+                              <span>Percepat Transcode Cloud</span>
+                            </>
+                          )}
+                        </button>
+                        {triggerSuccessMsg && (
+                          <div style={{ fontSize: 10, color: '#38bdf8', marginTop: 4, textAlign: 'center', lineHeight: 1.3 }}>
+                            {triggerSuccessMsg}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

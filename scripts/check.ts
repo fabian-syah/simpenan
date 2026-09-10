@@ -2,7 +2,7 @@ import { supabaseAdmin } from '../api/_lib/supabase.js';
 import { getMediaFireAccountQuota } from '../api/_lib/mediafire.js';
 
 async function check() {
-  const { data, error } = await supabaseAdmin
+  const { data } = await supabaseAdmin
     .from('files')
     .select('id, name, parent_path, size_bytes, upload_status')
     .like('parent_path', '.variants%');

@@ -2,8 +2,10 @@ name: Simpenan Video Transcoder Worker
 
 on:
   workflow_dispatch: # Manual trigger button in GitHub Actions
+  repository_dispatch:
+    types: [transcode_video]
   schedule:
-    - cron: '*/20 * * * *' # Auto-runs every 20 minutes in the cloud
+    - cron: '*/5 * * * *' # Fast auto-runs every 5 minutes in the cloud
 
 jobs:
   transcode:
