@@ -29,11 +29,11 @@ jobs:
         run: npm ci || npm install
 
       - name: Write .env from ENV_FILE secret
-        if: ${{ secrets.ENV_FILE != '' }}
+        if: env.ENV_CONTENT != ''
+        env:
+          ENV_CONTENT: ${{ secrets.ENV_FILE }}
         run: |
-          cat << 'EOF' > .env
-          ${{ secrets.ENV_FILE }}
-          EOF
+          printf "%s\n" "$ENV_CONTENT" > .env
 
       - name: Run Transcoder Batch
         env:
