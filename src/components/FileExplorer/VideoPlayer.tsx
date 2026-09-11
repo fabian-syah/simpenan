@@ -285,6 +285,43 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   const [isMobileFullscreen, setIsMobileFullscreen] = useState(false);
   const isPlayerFullscreen = isFullscreen || isMobileFullscreen;
 
+  // Track viewport dimensions for seamless auto-rotation
+  const [windowSize, setWindowSize] = useState(() => ({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1200,
+    height: typeof window !== 'undefined' ? window.innerHeight : 800,
+  }));
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, []);
+
+  const isMobile = useMemo(() => {
+    return windowSize.width <= 768 || windowSize.height <= 500;
+  }, [windowSize.width, windowSize.height]);
+
+  const isPortrait = useMemo(() => {
+    return windowSize.height > windowSize.width;
+  }, [windowSize.width, windowSize.height]);
+
+  // Mobile auto-rotate to landscape (defaults to true for immersive fullscreen)
+  const [isForcedLandscape, setIsForcedLandscape] = useState(true);
+  const [videoFit, setVideoFit] = useState<'contain' | 'cover'>('contain');
+
+  const shouldRotateLandscape = useMemo(() => {
+    return isPlayerFullscreen && isMobile && isPortrait && isForcedLandscape;
+  }, [isPlayerFullscreen, isMobile, isPortrait, isForcedLandscape]);
+
   useEffect(() => {
     onFullscreenChange?.(isPlayerFullscreen);
   }, [isPlayerFullscreen, onFullscreenChange]);
@@ -485,26 +522,34 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     setShowSpeedMenu(false);
   }, [getActiveVideo]);
 
-  // Handle Fullscreen (Responsive: In-App Vertical on Mobile, Native on Desktop)
+  // Handle Fullscreen (Responsive: In-App Auto-Rotate Landscape on Mobile, Native on Desktop)
   const toggleFullscreen = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const isMobile = window.innerWidth <= 768;
+    const isMob = window.innerWidth <= 768 || window.innerHeight <= 500;
 
-    if (isMobile) {
+    if (isMob) {
       setIsMobileFullscreen((prev) => {
         const next = !prev;
         if (next) {
+          setIsForcedLandscape(true);
           if (container.requestFullscreen) {
             container.requestFullscreen().catch(() => {});
           }
-          if (screen.orientation && 'unlock' in screen.orientation) {
-            try { (screen.orientation as any).unlock(); } catch {}
+          if (screen.orientation && 'lock' in screen.orientation) {
+            try {
+              (screen.orientation as any).lock('landscape').catch(() => {});
+            } catch {}
           }
         } else {
           if (document.fullscreenElement) {
             document.exitFullscreen().catch(() => {});
+          }
+          if (screen.orientation && 'unlock' in screen.orientation) {
+            try {
+              (screen.orientation as any).unlock();
+            } catch {}
           }
         }
         return next;
@@ -513,6 +558,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       if (!document.fullscreenElement) {
         container.requestFullscreen().catch(() => {
           setIsMobileFullscreen(true);
+          setIsForcedLandscape(true);
         });
       } else {
         document.exitFullscreen().catch(() => {});
@@ -525,8 +571,13 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     const handleFullscreenChange = () => {
       const active = !!document.fullscreenElement;
       setIsFullscreen(active);
-      if (!active && window.innerWidth > 768) {
-        setIsMobileFullscreen(false);
+      if (!active) {
+        if (window.innerWidth > 768) {
+          setIsMobileFullscreen(false);
+        }
+        if (screen.orientation && 'unlock' in screen.orientation) {
+          try { (screen.orientation as any).unlock(); } catch {}
+        }
       }
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -1162,6 +1213,28 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       };
     }
     if (isPlayerFullscreen) {
+      if (shouldRotateLandscape) {
+        return {
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          width: `${windowSize.height}px`,
+          height: `${windowSize.width}px`,
+          transform: 'translate(-50%, -50%) rotate(90deg)',
+          transformOrigin: 'center center',
+          zIndex: 99998,
+          backgroundColor: '#000000',
+          borderRadius: 0,
+          overflow: 'hidden',
+          boxShadow: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          ['--sub-font-size' as any]: subFontSize === 'small' ? '14px' : subFontSize === 'large' ? '23px' : '18px',
+          ['--sub-color' as any]: subColor,
+          ['--sub-bg' as any]: subBg === 'none' ? 'transparent' : subBg === 'solid' ? '#000000' : 'rgba(0, 0, 0, 0.75)',
+        };
+      }
       return {
         position: 'fixed',
         inset: 0,
@@ -1200,33 +1273,33 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       ['--sub-color' as any]: subColor,
       ['--sub-bg' as any]: subBg === 'none' ? 'transparent' : subBg === 'solid' ? '#000000' : 'rgba(0, 0, 0, 0.75)',
     };
-  }, [isMinimized, isPlayerFullscreen, subFontSize, subColor, subBg]);
+  }, [isMinimized, isPlayerFullscreen, shouldRotateLandscape, windowSize.width, windowSize.height, subFontSize, subColor, subBg]);
 
   const slot0Style = useMemo<React.CSSProperties>(() => ({
     position: 'absolute',
     inset: 0,
     width: '100%',
     height: '100%',
-    objectFit: 'contain',
+    objectFit: videoFit,
     cursor: 'pointer',
     opacity: activeSlot === 0 ? 1 : 0,
     pointerEvents: activeSlot === 0 ? 'auto' : 'none',
     zIndex: activeSlot === 0 ? 2 : 1,
     transition: 'opacity 0.15s ease-in-out',
-  }), [activeSlot]);
+  }), [activeSlot, videoFit]);
 
   const slot1Style = useMemo<React.CSSProperties>(() => ({
     position: 'absolute',
     inset: 0,
     width: '100%',
     height: '100%',
-    objectFit: 'contain',
+    objectFit: videoFit,
     cursor: 'pointer',
     opacity: activeSlot === 1 ? 1 : 0,
     pointerEvents: activeSlot === 1 ? 'auto' : 'none',
     zIndex: activeSlot === 1 ? 2 : 1,
     transition: 'opacity 0.15s ease-in-out',
-  }), [activeSlot]);
+  }), [activeSlot, videoFit]);
 
   return (
     <div
@@ -1249,7 +1322,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       }}
       style={containerStyle}
     >
-      {/* Mobile Fullscreen Top Bar (Auto-Vertical Fullscreen with Back Button) */}
+      {/* Mobile Fullscreen Top Bar (With Back, Auto-Rotate Toggle, and Fit Controls) */}
       {isPlayerFullscreen && (
         <div
           style={{
@@ -1268,29 +1341,82 @@ export const VideoPlayer = React.memo(function VideoPlayer({
             transition: 'opacity 0.25s ease',
           }}
         >
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            style={{
-              background: 'rgba(15, 23, 42, 0.75)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              borderRadius: 10,
-              padding: '6px 12px',
-              color: '#ffffff',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              fontSize: 12.5,
-              fontWeight: 600,
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-            }}
-            title="Keluar Layar Penuh (Esc)"
-          >
-            <ArrowLeft size={16} />
-            <span>Kembali</span>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              style={{
+                background: 'rgba(15, 23, 42, 0.75)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: 10,
+                padding: '6px 12px',
+                color: '#ffffff',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: 12.5,
+                fontWeight: 600,
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+              }}
+              title="Keluar Layar Penuh (Esc)"
+            >
+              <ArrowLeft size={16} />
+              <span>Kembali</span>
+            </button>
+
+            {/* Auto-Rotate Toggle Button for Mobile Portrait */}
+            {isMobile && isPortrait && (
+              <button
+                type="button"
+                onClick={() => setIsForcedLandscape((prev) => !prev)}
+                style={{
+                  background: isForcedLandscape ? 'rgba(56, 189, 248, 0.25)' : 'rgba(15, 23, 42, 0.75)',
+                  border: isForcedLandscape ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: 10,
+                  padding: '6px 12px',
+                  color: isForcedLandscape ? '#38bdf8' : '#ffffff',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                }}
+                title={isForcedLandscape ? 'Ganti ke Mode Vertikal' : 'Ganti ke Mode Lanskap (Penuh)'}
+              >
+                <RotateCw size={15} />
+                <span>{isForcedLandscape ? 'Lanskap' : 'Vertikal'}</span>
+              </button>
+            )}
+
+            {/* Video Fit / Zoom to Fill Toggle */}
+            <button
+              type="button"
+              onClick={() => setVideoFit((prev) => (prev === 'contain' ? 'cover' : 'contain'))}
+              style={{
+                background: videoFit === 'cover' ? 'rgba(56, 189, 248, 0.25)' : 'rgba(15, 23, 42, 0.75)',
+                border: videoFit === 'cover' ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: 10,
+                padding: '6px 10px',
+                color: videoFit === 'cover' ? '#38bdf8' : '#e2e8f0',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                fontSize: 12,
+                fontWeight: 600,
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+              }}
+              title={videoFit === 'contain' ? 'Penuhkan Layar (Zoom/Crop)' : 'Aspek Rasio Asli (Fit)'}
+            >
+              <span>{videoFit === 'contain' ? 'Fit' : 'Crop'}</span>
+            </button>
+          </div>
 
           <div
             style={{
@@ -3305,6 +3431,68 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                     <span style={{ fontSize: 13.5, fontWeight: 500 }}>Layar Mengambang (Mini)</span>
                   </div>
                 </button>
+
+                {/* Orientasi Layar (Lanskap Penuh vs Vertikal) */}
+                {isMobile && isPortrait && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForcedLandscape((prev) => !prev);
+                      setShowMobileSettings(false);
+                    }}
+                    style={mobileMenuItemStyle}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <RotateCw size={17} color="#38bdf8" />
+                      <span style={{ fontSize: 13.5, fontWeight: 500 }}>Orientasi Layar</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#38bdf8', fontSize: 12, fontWeight: 600 }}>
+                      <span>{isForcedLandscape ? 'Lanskap (Auto)' : 'Vertikal'}</span>
+                      <ChevronRight size={15} color="#94a3b8" />
+                    </div>
+                  </button>
+                )}
+
+                {/* Skala Tampilan Video (Fit vs Crop/Penuh) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVideoFit((prev) => (prev === 'contain' ? 'cover' : 'contain'));
+                    setShowMobileSettings(false);
+                  }}
+                  style={mobileMenuItemStyle}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Maximize2 size={17} color="#38bdf8" />
+                    <span style={{ fontSize: 13.5, fontWeight: 500 }}>Skala Tampilan</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#38bdf8', fontSize: 12, fontWeight: 600 }}>
+                    <span>{videoFit === 'contain' ? 'Muat Layar (Fit)' : 'Penuh Layar (Crop)'}</span>
+                    <ChevronRight size={15} color="#94a3b8" />
+                  </div>
+                </button>
+
+                {/* Pemutar Sistem Apple iOS */}
+                {typeof HTMLVideoElement !== 'undefined' && (getActiveVideo() as any)?.webkitEnterFullscreen && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMobileSettings(false);
+                      try {
+                        (getActiveVideo() as any)?.webkitEnterFullscreen();
+                      } catch (err) {
+                        console.warn('iOS webkitEnterFullscreen error:', err);
+                      }
+                    }}
+                    style={mobileMenuItemStyle}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <ExternalLink size={17} color="#38bdf8" />
+                      <span style={{ fontSize: 13.5, fontWeight: 500 }}>Pemutar Sistem Apple iOS</span>
+                    </div>
+                    <span style={{ fontSize: 11, color: '#94a3b8' }}>Native AVPlayer</span>
+                  </button>
+                )}
               </div>
             )}
 
