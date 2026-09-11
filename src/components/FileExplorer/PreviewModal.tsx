@@ -129,6 +129,8 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
         zIndex: 9999,
         background: isMinimized ? 'transparent' : '#000000',
         pointerEvents: isMinimized ? 'none' : 'auto',
+        backdropFilter: isVideoFullscreen ? 'none' : undefined,
+        WebkitBackdropFilter: isVideoFullscreen ? 'none' : undefined,
       }}
     >
       <div
@@ -223,7 +225,7 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  overflow: 'hidden',
+                  overflow: isVideoFullscreen ? 'visible' : 'hidden',
                   position: 'relative',
                 }
           }

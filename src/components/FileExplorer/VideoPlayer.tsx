@@ -522,10 +522,33 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     setShowSpeedMenu(false);
   }, [getActiveVideo]);
 
-  // Handle Fullscreen (Responsive: In-App Auto-Rotate Landscape on Mobile, Native on Desktop)
+  // Handle Fullscreen (Responsive: Native Apple iOS Fullscreen on iPhone, Native Orientation Lock on Android, Standard on Desktop)
   const toggleFullscreen = useCallback(() => {
     const container = containerRef.current;
-    if (!container) return;
+    const video = getActiveVideo();
+    if (!container && !video) return;
+
+    // Detect iOS devices (iPhone, iPad, iPod)
+    const isIos =
+      typeof navigator !== 'undefined' &&
+      (/iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+    // 1. On iOS Safari (iPhone): webkitEnterFullscreen is Apple's native player (auto-rotates to landscape)
+    if (isIos && video && typeof (video as any).webkitEnterFullscreen === 'function') {
+      try {
+        if ((video as any).webkitDisplayingFullscreen) {
+          if (typeof (video as any).webkitExitFullscreen === 'function') {
+            (video as any).webkitExitFullscreen();
+          }
+        } else {
+          (video as any).webkitEnterFullscreen();
+        }
+        return;
+      } catch (err) {
+        console.warn('[VideoPlayer] iOS webkitEnterFullscreen error, falling back:', err);
+      }
+    }
 
     const isMob = window.innerWidth <= 768 || window.innerHeight <= 500;
 
@@ -534,8 +557,9 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         const next = !prev;
         if (next) {
           setIsForcedLandscape(true);
-          if (container.requestFullscreen) {
-            container.requestFullscreen().catch(() => {});
+          const req = container?.requestFullscreen || (video as any)?.requestFullscreen;
+          if (req) {
+            req.call(container || video).catch(() => {});
           }
           if (screen.orientation && 'lock' in screen.orientation) {
             try {
@@ -556,7 +580,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       });
     } else {
       if (!document.fullscreenElement) {
-        container.requestFullscreen().catch(() => {
+        container?.requestFullscreen().catch(() => {
           setIsMobileFullscreen(true);
           setIsForcedLandscape(true);
         });
@@ -565,7 +589,35 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         setIsMobileFullscreen(false);
       }
     }
-  }, []);
+  }, [getActiveVideo]);
+
+  // Listen for iOS native webkit fullscreen events
+  useEffect(() => {
+    const v0 = videoRef0.current;
+    const v1 = videoRef1.current;
+
+    const handleEnter = () => {
+      setIsFullscreen(true);
+      onFullscreenChange?.(true);
+    };
+    const handleExit = () => {
+      setIsFullscreen(false);
+      setIsMobileFullscreen(false);
+      onFullscreenChange?.(false);
+    };
+
+    v0?.addEventListener('webkitbeginfullscreen', handleEnter);
+    v0?.addEventListener('webkitendfullscreen', handleExit);
+    v1?.addEventListener('webkitbeginfullscreen', handleEnter);
+    v1?.addEventListener('webkitendfullscreen', handleExit);
+
+    return () => {
+      v0?.removeEventListener('webkitbeginfullscreen', handleEnter);
+      v0?.removeEventListener('webkitendfullscreen', handleExit);
+      v1?.removeEventListener('webkitbeginfullscreen', handleEnter);
+      v1?.removeEventListener('webkitendfullscreen', handleExit);
+    };
+  }, [onFullscreenChange]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -1218,8 +1270,8 @@ export const VideoPlayer = React.memo(function VideoPlayer({
           position: 'fixed',
           top: '50%',
           left: '50%',
-          width: `${windowSize.height}px`,
-          height: `${windowSize.width}px`,
+          width: `${Math.max(windowSize.height, windowSize.width)}px`,
+          height: `${Math.min(windowSize.height, windowSize.width)}px`,
           transform: 'translate(-50%, -50%) rotate(90deg)',
           transformOrigin: 'center center',
           zIndex: 99998,
