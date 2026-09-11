@@ -144,21 +144,9 @@ const SleepTimerControl = React.memo(function SleepTimerControl({
 
       {isOpen && (
         <div
+          className="cv-video-popup-menu"
           style={{
-            position: 'absolute',
-            bottom: 36,
-            right: 0,
-            background: 'rgba(15, 23, 42, 0.96)',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
-            borderRadius: 12,
-            padding: '8px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 4,
-            zIndex: 25,
-            backdropFilter: 'blur(16px)',
             minWidth: 175,
-            boxShadow: '0 12px 30px rgba(0, 0, 0, 0.7)',
           }}
         >
           <div style={{ padding: '4px 8px 6px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
@@ -1974,20 +1962,10 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       {/* Sleek Custom Cloud Controls */}
       {!hasError && !isMinimized && (
         <div
+          className="cv-video-bottom-bar"
           style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)',
-            padding: '24px 18px 14px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
             opacity: showControls || !isPlaying ? 1 : 0,
             pointerEvents: showControls || !isPlaying ? 'auto' : 'none',
-            transition: 'opacity 0.25s ease',
-            zIndex: 8,
           }}
         >
           {/* Scrubber Range Slider with Buffer Bar */}
@@ -2048,9 +2026,9 @@ export const VideoPlayer = React.memo(function VideoPlayer({
           </div>
 
           {/* Controls Bottom Row */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="cv-video-controls-row">
             {/* Left Controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div className="cv-video-left-controls">
               <button
                 onClick={togglePlay}
                 style={controlBtnStyle}
@@ -2060,15 +2038,15 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                 {isPlaying ? <Pause size={20} /> : <Play size={20} />}
               </button>
 
-              <button onClick={() => skip(-10)} style={controlBtnStyle} title="Rewind 10s">
+              <button onClick={() => skip(-10)} className="cv-video-skip-btn" style={controlBtnStyle} title="Rewind 10s">
                 <RotateCcw size={17} />
               </button>
-              <button onClick={() => skip(10)} style={controlBtnStyle} title="Forward 10s">
+              <button onClick={() => skip(10)} className="cv-video-skip-btn" style={controlBtnStyle} title="Forward 10s">
                 <RotateCw size={17} />
               </button>
 
               {/* Volume */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <button onClick={toggleMute} style={controlBtnStyle} title="Mute (m)">
                   {isMuted || volume === 0 ? (
                     <VolumeX size={19} />
@@ -2085,6 +2063,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                   step={0.05}
                   value={isMuted ? 0 : volume}
                   onChange={handleVolumeChange}
+                  className="cv-video-volume-slider"
                   style={{
                     width: 70,
                     height: 4,
@@ -2095,15 +2074,15 @@ export const VideoPlayer = React.memo(function VideoPlayer({
               </div>
 
               {/* Time Display */}
-              <div style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 500, fontFamily: 'monospace' }}>
+              <div style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 500, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
                 <span>{formatTime(currentTime)}</span>
-                <span style={{ opacity: 0.5, margin: '0 4px' }}>/</span>
-                <span style={{ opacity: 0.75 }}>{formatTime(duration)}</span>
+                <span className="cv-video-time-total" style={{ opacity: 0.5, margin: '0 4px' }}>/</span>
+                <span className="cv-video-time-total" style={{ opacity: 0.75 }}>{formatTime(duration)}</span>
               </div>
             </div>
 
             {/* Right Controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
+            <div className="cv-video-right-controls" style={{ position: 'relative' }}>
               {/* Subtitle / CC Selector */}
               <div style={{ position: 'relative' }}>
                 <button
@@ -2134,21 +2113,11 @@ export const VideoPlayer = React.memo(function VideoPlayer({
 
                 {showSubMenu && (
                   <div
+                    className="cv-video-popup-menu"
                     style={{
-                      position: 'absolute',
-                      bottom: 36,
-                      right: 0,
-                      background: 'rgba(15, 23, 42, 0.96)',
-                      border: '1px solid rgba(56, 189, 248, 0.25)',
-                      borderRadius: 12,
-                      padding: '10px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 8,
-                      zIndex: 25,
-                      backdropFilter: 'blur(16px)',
                       minWidth: 260,
-                      boxShadow: '0 12px 30px rgba(0, 0, 0, 0.7)',
+                      gap: 8,
+                      padding: '10px',
                     }}
                   >
                     {/* Subtitle Tabs Header */}
@@ -2528,21 +2497,9 @@ export const VideoPlayer = React.memo(function VideoPlayer({
 
                 {showQualityMenu && (
                   <div
+                    className="cv-video-popup-menu"
                     style={{
-                      position: 'absolute',
-                      bottom: 36,
-                      right: 0,
-                      background: 'rgba(15, 23, 42, 0.96)',
-                      border: '1px solid rgba(56, 189, 248, 0.25)',
-                      borderRadius: 12,
-                      padding: '8px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 4,
-                      zIndex: 25,
-                      backdropFilter: 'blur(16px)',
                       minWidth: 240,
-                      boxShadow: '0 12px 30px rgba(0, 0, 0, 0.7)',
                     }}
                   >
                     <div style={{ padding: '4px 8px 6px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
@@ -2908,19 +2865,8 @@ export const VideoPlayer = React.memo(function VideoPlayer({
 
                 {showSpeedMenu && (
                   <div
+                    className="cv-video-popup-menu"
                     style={{
-                      position: 'absolute',
-                      bottom: 36,
-                      right: 0,
-                      background: 'rgba(15, 23, 42, 0.95)',
-                      border: '1px solid rgba(56, 189, 248, 0.2)',
-                      borderRadius: 10,
-                      padding: 6,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 4,
-                      zIndex: 20,
-                      backdropFilter: 'blur(10px)',
                       minWidth: 90,
                     }}
                   >

@@ -138,6 +138,7 @@ export function ShareModal({ file, onClose }: ShareModalProps) {
                 color: 'var(--cv-text-primary)',
                 fontSize: 12.5,
                 width: '100%',
+                minWidth: 0,
                 outline: 'none',
                 fontFamily: 'monospace',
               }}
@@ -184,7 +185,7 @@ export function ShareModal({ file, onClose }: ShareModalProps) {
         </div>
 
         {/* Actions Footer */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
           <a
             href={shareUrl}
             target="_blank"

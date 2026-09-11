@@ -108,27 +108,7 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        bottom: 16,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: '94%',
-        maxWidth: 820,
-        background: 'rgba(15, 23, 42, 0.94)',
-        border: '1px solid rgba(56, 189, 248, 0.3)',
-        boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(56, 189, 248, 0.2)',
-        borderRadius: 16,
-        padding: '12px 20px',
-        backdropFilter: 'blur(20px)',
-        zIndex: 9990,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-        transition: 'all 0.3s ease',
-      }}
-    >
+    <div className="cv-audio-bar">
       <audio
         ref={audioRef}
         src={url}
@@ -140,7 +120,7 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
       />
 
       {/* Scrubber Bar */}
-      <div style={{ position: 'relative', width: '100%', height: 6, display: 'flex', alignItems: 'center' }}>
+      <div className="cv-audio-scrubber-track">
         <div
           style={{
             position: 'absolute',
@@ -183,13 +163,13 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
       </div>
 
       {/* Main Bar Info & Controls */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="cv-audio-row">
         {/* Track Details */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, maxWidth: '35%', overflow: 'hidden' }}>
+        <div className="cv-audio-track">
           <div
             style={{
-              width: 40,
-              height: 40,
+              width: 38,
+              height: 38,
               borderRadius: 10,
               background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.4), rgba(56, 189, 248, 0.2))',
               border: '1px solid rgba(56, 189, 248, 0.3)',
@@ -202,16 +182,16 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
           >
             {isPlaying ? (
               <Disc
-                size={22}
+                size={20}
                 style={{
                   animation: 'spin 3s linear infinite',
                 }}
               />
             ) : (
-              <Music size={20} />
+              <Music size={18} />
             )}
           </div>
-          <div style={{ overflow: 'hidden' }}>
+          <div style={{ minWidth: 0, overflow: 'hidden' }}>
             <div
               style={{
                 fontSize: 13,
@@ -232,9 +212,10 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
         </div>
 
         {/* Center Playback Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div className="cv-audio-controls">
           <button
             onClick={() => skip(-10)}
+            className="cv-audio-skip-btn"
             style={btnStyle}
             title="Rewind 10s"
           >
@@ -244,8 +225,8 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
           <button
             onClick={togglePlay}
             style={{
-              width: 40,
-              height: 40,
+              width: 38,
+              height: 38,
               borderRadius: '50%',
               background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
               border: 'none',
@@ -256,16 +237,18 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
               cursor: 'pointer',
               boxShadow: '0 4px 15px rgba(2, 132, 199, 0.4)',
               transition: 'transform 0.15s ease',
+              flexShrink: 0,
             }}
             onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.08)')}
             onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
             title={isPlaying ? 'Pause' : 'Play'}
           >
-            {isPlaying ? <Pause size={18} fill="white" /> : <Play size={18} fill="white" style={{ marginLeft: 2 }} />}
+            {isPlaying ? <Pause size={17} fill="white" /> : <Play size={17} fill="white" style={{ marginLeft: 2 }} />}
           </button>
 
           <button
             onClick={() => skip(10)}
+            className="cv-audio-skip-btn"
             style={btnStyle}
             title="Forward 10s"
           >
@@ -287,7 +270,7 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
           </button>
 
           {/* Time Counter */}
-          <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#cbd5e1', marginLeft: 4 }}>
+          <div className="cv-audio-time" style={{ fontSize: 12, fontFamily: 'monospace', color: '#cbd5e1', marginLeft: 4 }}>
             <span>{formatAudioTime(currentTime)}</span>
             <span style={{ opacity: 0.4, margin: '0 3px' }}>/</span>
             <span style={{ opacity: 0.7 }}>{formatAudioTime(duration)}</span>
@@ -295,7 +278,7 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
         </div>
 
         {/* Right Volume & Dismiss */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="cv-audio-extra">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button onClick={toggleMute} style={btnStyle} title="Mute">
               {isMuted || volume === 0 ? (
@@ -313,6 +296,7 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
               step={0.05}
               value={isMuted ? 0 : volume}
               onChange={handleVolumeChange}
+              className="cv-audio-volume-slider"
               style={{
                 width: 65,
                 height: 3,
@@ -322,7 +306,7 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
             />
           </div>
 
-          <div style={{ width: 1, height: 20, background: 'rgba(255, 255, 255, 0.15)' }} />
+          <div className="cv-audio-divider" style={{ width: 1, height: 20, background: 'rgba(255, 255, 255, 0.15)' }} />
 
           <button
             onClick={onClose}

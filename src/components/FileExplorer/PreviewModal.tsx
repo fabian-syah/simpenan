@@ -148,11 +148,11 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
         {/* Top Header - Hidden when minimized in Miniplayer / PiP */}
         {!isMinimized && (
           <div
+            className="cv-preview-header"
             style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              padding: '16px 24px',
               background: 'linear-gradient(to bottom, rgba(0,0,0,0.85), transparent)',
               position: 'absolute',
               top: 0,
@@ -210,7 +210,7 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
 
         {/* Content Area */}
         <div
-          className={isMinimized ? "cv-video-minimized-card" : undefined}
+          className={isMinimized ? "cv-video-minimized-card" : isVideo ? "cv-preview-content-area" : undefined}
           style={
             isMinimized
               ? undefined
@@ -219,7 +219,6 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: isVideo ? '60px 20px 20px' : '0',
                   overflow: 'hidden',
                   position: 'relative',
                 }

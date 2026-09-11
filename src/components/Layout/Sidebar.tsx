@@ -9,11 +9,17 @@ import {
   FolderPlus,
   UploadCloud,
   Layers,
+  X,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
 import type { TargetStorageOption } from '../../types';
+import type { Theme } from '../../hooks/useTheme';
 
 interface SidebarProps {
   isOpen: boolean;
+  onClose?: () => void;
   activeSection: string;
   onSectionChange: (section: string) => void;
   onNewClick: () => void;
@@ -22,6 +28,8 @@ interface SidebarProps {
   targetProvider?: TargetStorageOption;
   onTargetProviderChange?: (provider: TargetStorageOption) => void;
   onMoveFiles?: (fileIds: string[], targetPath: string) => Promise<void>;
+  theme?: Theme;
+  onThemeChange?: (theme: Theme) => void;
 }
 
 const NAV_ITEMS = [
@@ -33,6 +41,7 @@ const NAV_ITEMS = [
 
 export function Sidebar({
   isOpen,
+  onClose,
   activeSection,
   onSectionChange,
   onNewClick,
@@ -41,6 +50,8 @@ export function Sidebar({
   targetProvider = 'auto',
   onTargetProviderChange,
   onMoveFiles,
+  theme,
+  onThemeChange,
 }: SidebarProps) {
   const [dragOverDrive, setDragOverDrive] = useState(false);
 
@@ -61,6 +72,26 @@ export function Sidebar({
             <span>Multi-Cloud Sync</span>
           </div>
         </div>
+        {onClose && (
+          <button
+            className="cv-mobile-only"
+            onClick={onClose}
+            aria-label="Tutup menu"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--cv-text-secondary)',
+              cursor: 'pointer',
+              padding: 6,
+              borderRadius: 8,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <X size={20} />
+          </button>
+        )}
       </div>
 
       {/* Actions */}
@@ -161,6 +192,44 @@ export function Sidebar({
 
       {/* Quota */}
       {quotaElement}
+
+      {/* Mobile Theme Switcher in Drawer */}
+      {onThemeChange && theme && (
+        <div className="cv-mobile-only" style={{ marginTop: 'auto', paddingTop: 16, borderTop: '1px solid var(--cv-border)' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--cv-text-tertiary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Theme
+          </div>
+          <div className="cv-toggle-group" style={{ width: '100%' }}>
+            <button
+              className={`cv-toggle-btn ${theme === 'light' ? 'active' : ''}`}
+              onClick={() => onThemeChange('light')}
+              style={{ flex: 1 }}
+              title="Light theme"
+              aria-label="Light theme"
+            >
+              <Sun size={15} />
+            </button>
+            <button
+              className={`cv-toggle-btn ${theme === 'dark' ? 'active' : ''}`}
+              onClick={() => onThemeChange('dark')}
+              style={{ flex: 1 }}
+              title="Dark theme"
+              aria-label="Dark theme"
+            >
+              <Moon size={15} />
+            </button>
+            <button
+              className={`cv-toggle-btn ${theme === 'system' ? 'active' : ''}`}
+              onClick={() => onThemeChange('system')}
+              style={{ flex: 1 }}
+              title="System theme"
+              aria-label="System theme"
+            >
+              <Monitor size={15} />
+            </button>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

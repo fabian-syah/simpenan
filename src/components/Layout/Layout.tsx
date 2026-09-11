@@ -94,6 +94,7 @@ export function Layout({
 
       <Sidebar
         isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
         activeSection={activeSection}
         onSectionChange={handleSectionChange}
         onNewClick={onNewFolder}
@@ -102,6 +103,8 @@ export function Layout({
         targetProvider={targetProvider}
         onTargetProviderChange={onTargetProviderChange}
         onMoveFiles={onMoveFiles}
+        theme={theme}
+        onThemeChange={onThemeChange}
       />
 
       <div className="cv-main-area">

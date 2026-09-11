@@ -302,7 +302,11 @@ export function FileList({
   const handleContextMenu = useCallback((e: React.MouseEvent, file: FileRecord) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY, file });
+    const menuWidth = 240;
+    const menuHeight = 340;
+    const clampedX = Math.max(10, Math.min(e.clientX, (window.innerWidth || 360) - menuWidth - 10));
+    const clampedY = Math.max(10, Math.min(e.clientY, (window.innerHeight || 600) - menuHeight - 10));
+    setContextMenu({ x: clampedX, y: clampedY, file });
   }, []);
 
   const handleDoubleClick = useCallback((file: FileRecord) => {

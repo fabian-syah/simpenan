@@ -110,7 +110,7 @@ export function Header({
 
         {/* Target Storage Selector (Desktop Header, Clean & Emoji-free) */}
         {onTargetProviderChange && (
-          <div className="cv-storage-select-wrapper" title="Target cloud storage backend for uploads">
+          <div className="cv-storage-select-wrapper cv-desktop-only" title="Target cloud storage backend for uploads">
             <Layers size={14} style={{ color: 'var(--cv-accent)' }} />
             <select
               value={targetProvider}
@@ -149,7 +149,7 @@ export function Header({
         </div>
 
         {/* Theme toggle */}
-        <div className="cv-toggle-group">
+        <div className="cv-toggle-group cv-desktop-only">
           <button
             className={`cv-toggle-btn ${theme === 'light' ? 'active' : ''}`}
             onClick={() => onThemeChange('light')}
