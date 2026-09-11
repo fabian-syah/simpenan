@@ -316,7 +316,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
 
   // Mobile auto-rotate to landscape (defaults to true for immersive fullscreen)
   const [isForcedLandscape, setIsForcedLandscape] = useState(true);
-  const [videoFit, setVideoFit] = useState<'contain' | 'cover'>('contain');
+  const [videoFit, setVideoFit] = useState<'contain' | 'cover' | 'fill'>('cover');
 
   const shouldRotateLandscape = useMemo(() => {
     return isPlayerFullscreen && isMobile && isPortrait && isForcedLandscape;
@@ -532,6 +532,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         const next = !prev;
         if (next) {
           setIsForcedLandscape(true);
+          setVideoFit('cover');
           if (container?.requestFullscreen) {
             container.requestFullscreen().catch(() => {});
           }
@@ -1244,8 +1245,8 @@ export const VideoPlayer = React.memo(function VideoPlayer({
           position: 'fixed',
           top: 0,
           left: 0,
-          width: `${Math.max(windowSize.height, windowSize.width)}px`,
-          height: `${Math.min(windowSize.height, windowSize.width)}px`,
+          width: typeof window !== 'undefined' && CSS.supports?.('height', '100dvh') ? '100dvh' : `${Math.max(windowSize.height, windowSize.width)}px`,
+          height: typeof window !== 'undefined' && CSS.supports?.('width', '100dvw') ? '100dvw' : `${Math.min(windowSize.height, windowSize.width)}px`,
           transformOrigin: 'top left',
           transform: 'rotate(90deg) translateY(-100%)',
           zIndex: 99998,
@@ -1266,7 +1267,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         inset: 0,
         zIndex: 99998,
         width: '100vw',
-        height: '100vh',
+        height: typeof window !== 'undefined' && CSS.supports?.('height', '100dvh') ? '100dvh' : '100vh',
         maxWidth: 'none',
         maxHeight: 'none',
         aspectRatio: 'auto',
@@ -1422,13 +1423,15 @@ export const VideoPlayer = React.memo(function VideoPlayer({
             {/* Video Fit / Zoom to Fill Toggle */}
             <button
               type="button"
-              onClick={() => setVideoFit((prev) => (prev === 'contain' ? 'cover' : 'contain'))}
+              onClick={() =>
+                setVideoFit((prev) => (prev === 'cover' ? 'contain' : prev === 'contain' ? 'fill' : 'cover'))
+              }
               style={{
-                background: videoFit === 'cover' ? 'rgba(56, 189, 248, 0.25)' : 'rgba(15, 23, 42, 0.75)',
-                border: videoFit === 'cover' ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.2)',
+                background: videoFit !== 'contain' ? 'rgba(56, 189, 248, 0.25)' : 'rgba(15, 23, 42, 0.75)',
+                border: videoFit !== 'contain' ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.2)',
                 borderRadius: 10,
                 padding: '6px 10px',
-                color: videoFit === 'cover' ? '#38bdf8' : '#e2e8f0',
+                color: videoFit !== 'contain' ? '#38bdf8' : '#e2e8f0',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -1438,10 +1441,50 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                 backdropFilter: 'blur(8px)',
                 WebkitBackdropFilter: 'blur(8px)',
               }}
-              title={videoFit === 'contain' ? 'Penuhkan Layar (Zoom/Crop)' : 'Aspek Rasio Asli (Fit)'}
+              title={
+                videoFit === 'cover'
+                  ? 'Mode Layar Penuh (Zoom). Klik untuk Rasio Asli (Fit)'
+                  : videoFit === 'contain'
+                  ? 'Mode Rasio Asli (Fit). Klik untuk Regangkan Layar'
+                  : 'Mode Regangkan Layar. Klik untuk Layar Penuh (Zoom)'
+              }
             >
-              <span>{videoFit === 'contain' ? 'Fit' : 'Crop'}</span>
+              <Maximize2 size={13} />
+              <span>{videoFit === 'cover' ? 'Penuh' : videoFit === 'contain' ? 'Fit' : 'Regang'}</span>
             </button>
+
+            {/* Apple iOS Native Fullscreen Button (Hilangkan URL bar & bottom toolbar Safari) */}
+            {typeof HTMLVideoElement !== 'undefined' && typeof (getActiveVideo() as any)?.webkitEnterFullscreen === 'function' && (
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    (getActiveVideo() as any)?.webkitEnterFullscreen();
+                  } catch (err) {
+                    console.warn('iOS webkitEnterFullscreen error:', err);
+                  }
+                }}
+                style={{
+                  background: 'rgba(56, 189, 248, 0.2)',
+                  border: '1px solid #38bdf8',
+                  borderRadius: 10,
+                  padding: '6px 10px',
+                  color: '#38bdf8',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                }}
+                title="Buka Layar Penuh Sistem Apple iOS (Bebas Bar Safari)"
+              >
+                <ExternalLink size={13} />
+                <span>Penuh iOS</span>
+              </button>
+            )}
           </div>
 
           <div
@@ -3479,11 +3522,11 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                   </button>
                 )}
 
-                {/* Skala Tampilan Video (Fit vs Crop/Penuh) */}
+                {/* Skala Tampilan Video (Fit vs Penuh vs Regang) */}
                 <button
                   type="button"
                   onClick={() => {
-                    setVideoFit((prev) => (prev === 'contain' ? 'cover' : 'contain'));
+                    setVideoFit((prev) => (prev === 'cover' ? 'contain' : prev === 'contain' ? 'fill' : 'cover'));
                     setShowMobileSettings(false);
                   }}
                   style={mobileMenuItemStyle}
@@ -3493,7 +3536,13 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                     <span style={{ fontSize: 13.5, fontWeight: 500 }}>Skala Tampilan</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#38bdf8', fontSize: 12, fontWeight: 600 }}>
-                    <span>{videoFit === 'contain' ? 'Muat Layar (Fit)' : 'Penuh Layar (Crop)'}</span>
+                    <span>
+                      {videoFit === 'cover'
+                        ? 'Layar Penuh (Zoom)'
+                        : videoFit === 'contain'
+                        ? 'Rasio Asli (Fit)'
+                        : 'Regangkan Layar (Stretch)'}
+                    </span>
                     <ChevronRight size={15} color="#94a3b8" />
                   </div>
                 </button>
