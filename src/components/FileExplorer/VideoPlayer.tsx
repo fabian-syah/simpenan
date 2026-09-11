@@ -3,13 +3,13 @@
 // Eliminates re-mount flickering, handles MKV/unsupported codecs gracefully,
 // and provides sleek modern cloud controls
 // ============================================================
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, useImperativeHandle } from 'react';
 import {
   Play, Pause, Volume2, Volume1, VolumeX, Maximize, Minimize,
   RotateCcw, RotateCw, Download, ExternalLink, AlertTriangle,
   RefreshCw, Check, SlidersHorizontal, Captions, Plus,
   PictureInPicture2, Moon, Timer, Type, Palette,
-  Minimize2, Maximize2, X
+  Minimize2, Maximize2, X, Settings, ChevronRight, ArrowLeft
 } from 'lucide-react';
 import { formatBytes } from '../../types';
 import { getDownloadUrl } from '../../lib/api';
@@ -59,6 +59,27 @@ const controlBtnStyle: React.CSSProperties = {
   transition: 'color 0.2s, background 0.2s',
 };
 
+const mobileMenuItemStyle: React.CSSProperties = {
+  width: '100%',
+  background: 'transparent',
+  border: 'none',
+  color: '#e2e8f0',
+  padding: '8px 10px',
+  borderRadius: 8,
+  fontSize: 12.5,
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  textAlign: 'left',
+  transition: 'background 0.15s ease',
+};
+
+export interface SleepTimerHandle {
+  setChoice: (choice: number | 'end' | null) => void;
+  getStatus: () => string;
+}
+
 interface SleepTimerControlProps {
   isOpen: boolean;
   onToggle: () => void;
@@ -68,56 +89,59 @@ interface SleepTimerControlProps {
 }
 
 // Self-contained SleepTimerControl so 1s interval does NOT re-render the VideoPlayer or video element
-const SleepTimerControl = React.memo(function SleepTimerControl({
-  isOpen,
-  onToggle,
-  onClose,
-  onTimerExpired,
-  onSelectEndMode,
-}: SleepTimerControlProps) {
-  const [option, setOption] = useState<number | 'end' | null>(null);
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+const SleepTimerControl = React.forwardRef<SleepTimerHandle, SleepTimerControlProps>(
+  function SleepTimerControl(
+    { isOpen, onToggle, onClose, onTimerExpired, onSelectEndMode },
+    ref
+  ) {
+    const [option, setOption] = useState<number | 'end' | null>(null);
+    const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
-  const isTimerRunning = secondsLeft !== null;
+    const isTimerRunning = secondsLeft !== null;
 
-  useEffect(() => {
-    if (!isTimerRunning) return;
+    useEffect(() => {
+      if (!isTimerRunning) return;
 
-    const interval = window.setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev === null || prev <= 1) {
-          onTimerExpired();
-          setOption(null);
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      const interval = window.setInterval(() => {
+        setSecondsLeft((prev) => {
+          if (prev === null || prev <= 1) {
+            onTimerExpired();
+            setOption(null);
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
 
-    return () => clearInterval(interval);
-  }, [isTimerRunning, onTimerExpired]);
+      return () => clearInterval(interval);
+    }, [isTimerRunning, onTimerExpired]);
 
-  const selectOption = (choice: number | 'end' | null) => {
-    setOption(choice);
-    onClose();
-    if (choice === 'end') {
-      onSelectEndMode(true);
-      setSecondsLeft(null);
-    } else if (typeof choice === 'number') {
-      onSelectEndMode(false);
-      setSecondsLeft(choice * 60);
-    } else {
-      onSelectEndMode(false);
-      setSecondsLeft(null);
-    }
-  };
+    const selectOption = useCallback((choice: number | 'end' | null) => {
+      setOption(choice);
+      onClose();
+      if (choice === 'end') {
+        onSelectEndMode(true);
+        setSecondsLeft(null);
+      } else if (typeof choice === 'number') {
+        onSelectEndMode(false);
+        setSecondsLeft(choice * 60);
+      } else {
+        onSelectEndMode(false);
+        setSecondsLeft(null);
+      }
+    }, [onClose, onSelectEndMode]);
 
-  const formattedTime =
-    secondsLeft !== null
-      ? `${Math.floor(secondsLeft / 60)}:${(secondsLeft % 60).toString().padStart(2, '0')}`
-      : option === 'end'
-      ? 'End'
-      : 'Timer';
+    const formattedTime =
+      secondsLeft !== null
+        ? `${Math.floor(secondsLeft / 60)}:${(secondsLeft % 60).toString().padStart(2, '0')}`
+        : option === 'end'
+        ? 'End'
+        : 'Timer';
+
+    useImperativeHandle(ref, () => ({
+      setChoice: selectOption,
+      getStatus: () => (secondsLeft !== null ? formattedTime : option === 'end' ? 'End' : 'Mati'),
+    }), [selectOption, formattedTime, secondsLeft, option]);
 
   return (
     <div style={{ position: 'relative' }}>
@@ -298,6 +322,9 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   const [showSleepMenu, setShowSleepMenu] = useState(false);
   const [isSleepOverlayActive, setIsSleepOverlayActive] = useState(false);
   const isSleepEndModeRef = useRef(false);
+  const sleepTimerRef = useRef<SleepTimerHandle>(null);
+  const [showMobileSettings, setShowMobileSettings] = useState(false);
+  const [mobileSettingsView, setMobileSettingsView] = useState<'root' | 'quality' | 'speed' | 'sleep'>('root');
 
   // Subtitle Customization State (Sync & Styling)
   const [subTab, setSubTab] = useState<'tracks' | 'sync' | 'style'>('tracks');
@@ -2038,15 +2065,15 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                 {isPlaying ? <Pause size={20} /> : <Play size={20} />}
               </button>
 
-              <button onClick={() => skip(-10)} className="cv-video-skip-btn" style={controlBtnStyle} title="Rewind 10s">
+              <button onClick={() => skip(-10)} className="cv-desktop-only" style={controlBtnStyle} title="Rewind 10s">
                 <RotateCcw size={17} />
               </button>
-              <button onClick={() => skip(10)} className="cv-video-skip-btn" style={controlBtnStyle} title="Forward 10s">
+              <button onClick={() => skip(10)} className="cv-desktop-only" style={controlBtnStyle} title="Forward 10s">
                 <RotateCw size={17} />
               </button>
 
-              {/* Volume */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {/* Volume (Desktop Only) */}
+              <div className="cv-desktop-only" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <button onClick={toggleMute} style={controlBtnStyle} title="Mute (m)">
                   {isMuted || volume === 0 ? (
                     <VolumeX size={19} />
@@ -2074,10 +2101,10 @@ export const VideoPlayer = React.memo(function VideoPlayer({
               </div>
 
               {/* Time Display */}
-              <div style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 500, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: 12, color: '#e2e8f0', fontWeight: 500, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
                 <span>{formatTime(currentTime)}</span>
-                <span className="cv-video-time-total" style={{ opacity: 0.5, margin: '0 4px' }}>/</span>
-                <span className="cv-video-time-total" style={{ opacity: 0.75 }}>{formatTime(duration)}</span>
+                <span style={{ opacity: 0.5, margin: '0 4px' }}>/</span>
+                <span style={{ opacity: 0.75 }}>{formatTime(duration)}</span>
               </div>
             </div>
 
@@ -2108,7 +2135,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                   title="Subtitle / Teks Terjemahan (CC)"
                 >
                   <Captions size={14} />
-                  <span>{selectedSubIndex >= 0 ? 'CC ON' : 'CC'}</span>
+                  <span className="cv-desktop-only">{selectedSubIndex >= 0 ? 'CC ON' : 'CC'}</span>
                 </button>
 
                 {showSubMenu && (
@@ -2456,8 +2483,10 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                 />
               </div>
 
-              {/* Quality / Resolution Selector (YouTube-style with Auto and instant hot-swap) */}
-              <div style={{ position: 'relative' }}>
+              {/* DESKTOP ONLY: Direct Buttons (Quality, Speed, Sleep, PiP, Miniplayer) */}
+              <div className="cv-desktop-only" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {/* Quality / Resolution Selector (YouTube-style with Auto and instant hot-swap) */}
+                <div style={{ position: 'relative' }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -2896,47 +2925,327 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                 )}
               </div>
 
-              {/* Sleep Timer */}
-              <SleepTimerControl
-                isOpen={showSleepMenu}
-                onToggle={() => {
-                  setShowSleepMenu((prev) => !prev);
-                  setShowSpeedMenu(false);
-                  setShowQualityMenu(false);
-                  setShowSubMenu(false);
-                }}
-                onClose={() => setShowSleepMenu(false)}
-                onTimerExpired={handleSleepTimerExpired}
-                onSelectEndMode={(enabled) => {
-                  isSleepEndModeRef.current = enabled;
-                }}
-              />
+                {/* Sleep Timer */}
+                <SleepTimerControl
+                  ref={sleepTimerRef}
+                  isOpen={showSleepMenu}
+                  onToggle={() => {
+                    setShowSleepMenu((prev) => !prev);
+                    setShowSpeedMenu(false);
+                    setShowQualityMenu(false);
+                    setShowSubMenu(false);
+                  }}
+                  onClose={() => setShowSleepMenu(false)}
+                  onTimerExpired={handleSleepTimerExpired}
+                  onSelectEndMode={(enabled) => {
+                    isSleepEndModeRef.current = enabled;
+                  }}
+                />
 
-              {/* Picture-in-Picture (PiP) */}
-              {isPipSupported && (
+                {/* Picture-in-Picture (PiP) */}
+                {isPipSupported && (
+                  <button
+                    type="button"
+                    onClick={togglePip}
+                    style={{
+                      ...controlBtnStyle,
+                      color: isPipActive ? '#38bdf8' : '#e2e8f0',
+                      background: isPipActive ? 'rgba(56, 189, 248, 0.25)' : 'transparent',
+                    }}
+                    title={isPipActive ? 'Keluar dari Picture-in-Picture (p)' : 'Picture-in-Picture (p)'}
+                  >
+                    <PictureInPicture2 size={17} />
+                  </button>
+                )}
+
+                {/* Miniplayer (i) */}
                 <button
                   type="button"
-                  onClick={togglePip}
+                  onClick={() => onToggleMinimize?.(true)}
+                  style={controlBtnStyle}
+                  title="Miniplayer (i)"
+                >
+                  <Minimize2 size={17} />
+                </button>
+              </div>
+
+              {/* MOBILE ONLY: Quick Settings Gear Menu (YouTube Style) */}
+              <div className="cv-mobile-only" style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMobileSettings(!showMobileSettings);
+                    setMobileSettingsView('root');
+                    setShowSubMenu(false);
+                    setShowQualityMenu(false);
+                    setShowSpeedMenu(false);
+                    setShowSleepMenu(false);
+                  }}
                   style={{
                     ...controlBtnStyle,
-                    color: isPipActive ? '#38bdf8' : '#e2e8f0',
-                    background: isPipActive ? 'rgba(56, 189, 248, 0.25)' : 'transparent',
+                    padding: '5px 8px',
+                    borderRadius: 6,
+                    background: showMobileSettings ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255, 255, 255, 0.1)',
+                    color: showMobileSettings ? '#38bdf8' : '#e2e8f0',
                   }}
-                  title={isPipActive ? 'Keluar dari Picture-in-Picture (p)' : 'Picture-in-Picture (p)'}
+                  title="Pengaturan Video"
+                  aria-label="Pengaturan Video"
                 >
-                  <PictureInPicture2 size={17} />
+                  <Settings size={16} />
                 </button>
-              )}
 
-              {/* Miniplayer (i) */}
-              <button
-                type="button"
-                onClick={() => onToggleMinimize?.(true)}
-                style={controlBtnStyle}
-                title="Miniplayer (i)"
-              >
-                <Minimize2 size={17} />
-              </button>
+                {showMobileSettings && (
+                  <div
+                    className="cv-video-popup-menu"
+                    style={{
+                      minWidth: 260,
+                      maxHeight: '75vh',
+                      overflowY: 'auto',
+                      padding: 10,
+                    }}
+                  >
+                    {/* View: Root */}
+                    {mobileSettingsView === 'root' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px 8px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            Pengaturan Video
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowMobileSettings(false)}
+                            style={{ background: 'transparent', border: 'none', color: '#94a3b8', padding: 2, cursor: 'pointer' }}
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+
+                        {/* Kualitas Video */}
+                        <button
+                          type="button"
+                          onClick={() => setMobileSettingsView('quality')}
+                          style={mobileMenuItemStyle}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <SlidersHorizontal size={15} color="#38bdf8" />
+                            <span>Kualitas</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#94a3b8', fontSize: 11.5 }}>
+                            <span>{isAutoQuality ? `Auto (${currentResolution || autoRecommendedRes})` : currentResolution || '1080p'}</span>
+                            <ChevronRight size={14} />
+                          </div>
+                        </button>
+
+                        {/* Kecepatan Putar */}
+                        <button
+                          type="button"
+                          onClick={() => setMobileSettingsView('speed')}
+                          style={mobileMenuItemStyle}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Timer size={15} color="#38bdf8" />
+                            <span>Kecepatan</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#94a3b8', fontSize: 11.5 }}>
+                            <span>{playbackRate}x</span>
+                            <ChevronRight size={14} />
+                          </div>
+                        </button>
+
+                        {/* Sleep Timer */}
+                        <button
+                          type="button"
+                          onClick={() => setMobileSettingsView('sleep')}
+                          style={mobileMenuItemStyle}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Moon size={15} color="#38bdf8" />
+                            <span>Sleep Timer</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#94a3b8', fontSize: 11.5 }}>
+                            <span>{sleepTimerRef.current?.getStatus() || 'Mati'}</span>
+                            <ChevronRight size={14} />
+                          </div>
+                        </button>
+
+                        {/* PiP */}
+                        {isPipSupported && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              togglePip();
+                              setShowMobileSettings(false);
+                            }}
+                            style={mobileMenuItemStyle}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <PictureInPicture2 size={15} color="#38bdf8" />
+                              <span>Picture-in-Picture</span>
+                            </div>
+                            <span style={{ fontSize: 11, color: isPipActive ? '#38bdf8' : '#64748b' }}>
+                              {isPipActive ? 'Aktif' : 'Mulai'}
+                            </span>
+                          </button>
+                        )}
+
+                        {/* Miniplayer */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onToggleMinimize?.(true);
+                            setShowMobileSettings(false);
+                          }}
+                          style={mobileMenuItemStyle}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Minimize2 size={15} color="#38bdf8" />
+                            <span>Layar Mengambang (Mini)</span>
+                          </div>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* View: Quality */}
+                    {mobileSettingsView === 'quality' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px 8px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                          <button
+                            type="button"
+                            onClick={() => setMobileSettingsView('root')}
+                            style={{ background: 'transparent', border: 'none', color: '#38bdf8', padding: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5 }}
+                          >
+                            <ArrowLeft size={14} /> Kembali
+                          </button>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: '#f8fafc' }}>Pilih Kualitas</span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            let bestUrl = '';
+                            let bestLabel = '720p';
+                            const v720 = getVariantForRes('720p');
+                            const v480 = getVariantForRes('480p');
+                            const v360 = getVariantForRes('360p');
+                            const v1080 = variants?.find((v) => v.name.toLowerCase().endsWith('.mp4') && v.name.toLowerCase().includes('1080p'));
+                            if (v720) { bestUrl = getDownloadUrl(v720.id); bestLabel = '720p'; }
+                            else if (v480) { bestUrl = getDownloadUrl(v480.id); bestLabel = '480p'; }
+                            else if (v360) { bestUrl = getDownloadUrl(v360.id); bestLabel = '360p'; }
+                            else if (v1080) { bestUrl = getDownloadUrl(v1080.id); bestLabel = '1080p'; }
+                            else { bestUrl = url; bestLabel = 'Auto'; }
+                            handleResolutionClick(bestLabel, bestUrl, true);
+                            setShowMobileSettings(false);
+                          }}
+                          style={{
+                            ...mobileMenuItemStyle,
+                            background: isAutoQuality ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                            color: isAutoQuality ? '#38bdf8' : '#e2e8f0',
+                          }}
+                        >
+                          <span>Auto (Optimal)</span>
+                          {isAutoQuality && <Check size={14} />}
+                        </button>
+
+                        {(['720p', '480p', '360p'] as const).map((res) => {
+                          const variant = getVariantForRes(res);
+                          const isActive = !isAutoQuality && currentResolution === res;
+                          if (!variant) return null;
+                          return (
+                            <button
+                              key={res}
+                              type="button"
+                              onClick={() => {
+                                handleResolutionClick(res, getDownloadUrl(variant.id), false);
+                                setShowMobileSettings(false);
+                              }}
+                              style={{
+                                ...mobileMenuItemStyle,
+                                background: isActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                                color: isActive ? '#38bdf8' : '#e2e8f0',
+                              }}
+                            >
+                              <span>{res}</span>
+                              {isActive && <Check size={14} />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* View: Speed */}
+                    {mobileSettingsView === 'speed' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px 8px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                          <button
+                            type="button"
+                            onClick={() => setMobileSettingsView('root')}
+                            style={{ background: 'transparent', border: 'none', color: '#38bdf8', padding: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5 }}
+                          >
+                            <ArrowLeft size={14} /> Kembali
+                          </button>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: '#f8fafc' }}>Kecepatan Putar</span>
+                        </div>
+
+                        {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                          <button
+                            key={rate}
+                            type="button"
+                            onClick={() => {
+                              changePlaybackRate(rate);
+                              setShowMobileSettings(false);
+                            }}
+                            style={{
+                              ...mobileMenuItemStyle,
+                              background: playbackRate === rate ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                              color: playbackRate === rate ? '#38bdf8' : '#e2e8f0',
+                            }}
+                          >
+                            <span>{rate === 1 ? '1x (Normal)' : `${rate}x`}</span>
+                            {playbackRate === rate && <Check size={14} />}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* View: Sleep Timer */}
+                    {mobileSettingsView === 'sleep' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px 8px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                          <button
+                            type="button"
+                            onClick={() => setMobileSettingsView('root')}
+                            style={{ background: 'transparent', border: 'none', color: '#38bdf8', padding: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5 }}
+                          >
+                            <ArrowLeft size={14} /> Kembali
+                          </button>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: '#f8fafc' }}>Sleep Timer</span>
+                        </div>
+
+                        {[
+                          { label: 'Matikan Timer', choice: null },
+                          { label: '15 Menit', choice: 15 },
+                          { label: '30 Menit', choice: 30 },
+                          { label: '45 Menit', choice: 45 },
+                          { label: '60 Menit (1 Jam)', choice: 60 },
+                          { label: 'Saat Video Selesai', choice: 'end' as const },
+                        ].map((item) => (
+                          <button
+                            key={item.label}
+                            type="button"
+                            onClick={() => {
+                              sleepTimerRef.current?.setChoice(item.choice);
+                              setShowMobileSettings(false);
+                            }}
+                            style={mobileMenuItemStyle}
+                          >
+                            <span>{item.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Fullscreen */}
               <button

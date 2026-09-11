@@ -159,12 +159,13 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
               left: 0,
               right: 0,
               zIndex: 30,
+              padding: '12px 16px',
             }}
           >
-            <div style={{ color: 'white', fontWeight: 600, fontSize: 15, maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ color: 'white', fontWeight: 600, fontSize: 15, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 12 }}>
               {file.name}
             </div>
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexShrink: 0 }}>
               <a
                 href={isVideo ? activeUrl : getDownloadUrl(file.id)}
                 download={file.name}
@@ -173,18 +174,19 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
                 onMouseLeave={(e) => (e.currentTarget.style.color = '#cbd5e1')}
                 title="Download file"
               >
-                <Download size={22} />
+                <Download size={20} />
               </a>
               <a
                 href={isVideo ? activeUrl : getDownloadUrl(file.id)}
                 target="_blank"
                 rel="noreferrer"
+                className="cv-desktop-only"
                 style={{ color: '#cbd5e1', transition: 'color 0.2s', display: 'flex', alignItems: 'center' }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = '#38bdf8')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = '#cbd5e1')}
                 title="Open in new tab / VLC"
               >
-                <ExternalLink size={22} />
+                <ExternalLink size={20} />
               </a>
               <button
                 onClick={onClose}

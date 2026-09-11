@@ -205,7 +205,7 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
             >
               {file.name}
             </div>
-            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>
+            <div className="cv-desktop-only" style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>
               {formatBytes(file.size_bytes)}
             </div>
           </div>
@@ -215,7 +215,7 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
         <div className="cv-audio-controls">
           <button
             onClick={() => skip(-10)}
-            className="cv-audio-skip-btn"
+            className="cv-audio-skip-btn cv-desktop-only"
             style={btnStyle}
             title="Rewind 10s"
           >
@@ -257,6 +257,7 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
 
           <button
             onClick={toggleLoop}
+            className="cv-desktop-only"
             style={{
               ...btnStyle,
               color: isLooping ? '#38bdf8' : 'rgba(255, 255, 255, 0.6)',
@@ -270,7 +271,7 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
           </button>
 
           {/* Time Counter */}
-          <div className="cv-audio-time" style={{ fontSize: 12, fontFamily: 'monospace', color: '#cbd5e1', marginLeft: 4 }}>
+          <div className="cv-audio-time cv-desktop-only" style={{ fontSize: 12, fontFamily: 'monospace', color: '#cbd5e1', marginLeft: 4 }}>
             <span>{formatAudioTime(currentTime)}</span>
             <span style={{ opacity: 0.4, margin: '0 3px' }}>/</span>
             <span style={{ opacity: 0.7 }}>{formatAudioTime(duration)}</span>
@@ -279,7 +280,7 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
 
         {/* Right Volume & Dismiss */}
         <div className="cv-audio-extra">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="cv-desktop-only" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button onClick={toggleMute} style={btnStyle} title="Mute">
               {isMuted || volume === 0 ? (
                 <VolumeX size={17} />
@@ -306,7 +307,7 @@ export function AudioPlayerBar({ file, url, onClose }: AudioPlayerBarProps) {
             />
           </div>
 
-          <div className="cv-audio-divider" style={{ width: 1, height: 20, background: 'rgba(255, 255, 255, 0.15)' }} />
+          <div className="cv-audio-divider cv-desktop-only" style={{ width: 1, height: 20, background: 'rgba(255, 255, 255, 0.15)' }} />
 
           <button
             onClick={onClose}

@@ -1737,7 +1737,6 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
   gap: 10px;
   min-width: 0;
   flex: 1;
-  max-width: 35%;
 }
 
 .cv-audio-controls {
@@ -1760,9 +1759,15 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
     padding: 8px 12px;
     border-radius: 14px;
     gap: 6px;
+    width: calc(100% - 16px);
+  }
+  .cv-audio-row {
+    gap: 8px;
   }
   .cv-audio-track {
-    max-width: 50%;
+    max-width: none;
+    flex: 1;
+    min-width: 0;
   }
   .cv-audio-volume-slider {
     display: none !important;
@@ -1776,11 +1781,14 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
   .cv-audio-controls {
     gap: 6px;
   }
+  .cv-audio-extra {
+    gap: 6px;
+  }
 }
 
 @media (max-width: 440px) {
   .cv-audio-track {
-    max-width: 46%;
+    max-width: none;
   }
   .cv-audio-skip-btn {
     display: none !important;
