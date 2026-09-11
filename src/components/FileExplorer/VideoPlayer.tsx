@@ -522,34 +522,9 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     setShowSpeedMenu(false);
   }, [getActiveVideo]);
 
-  // Handle Fullscreen (Responsive: Native Apple iOS Fullscreen on iPhone, Native Orientation Lock on Android, Standard on Desktop)
+  // Handle Fullscreen (Responsive: Auto-Rotate Landscape In-App Fullscreen on Mobile, Native Fullscreen on Desktop)
   const toggleFullscreen = useCallback(() => {
     const container = containerRef.current;
-    const video = getActiveVideo();
-    if (!container && !video) return;
-
-    // Detect iOS devices (iPhone, iPad, iPod)
-    const isIos =
-      typeof navigator !== 'undefined' &&
-      (/iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
-
-    // 1. On iOS Safari (iPhone): webkitEnterFullscreen is Apple's native player (auto-rotates to landscape)
-    if (isIos && video && typeof (video as any).webkitEnterFullscreen === 'function') {
-      try {
-        if ((video as any).webkitDisplayingFullscreen) {
-          if (typeof (video as any).webkitExitFullscreen === 'function') {
-            (video as any).webkitExitFullscreen();
-          }
-        } else {
-          (video as any).webkitEnterFullscreen();
-        }
-        return;
-      } catch (err) {
-        console.warn('[VideoPlayer] iOS webkitEnterFullscreen error, falling back:', err);
-      }
-    }
-
     const isMob = window.innerWidth <= 768 || window.innerHeight <= 500;
 
     if (isMob) {
@@ -557,9 +532,8 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         const next = !prev;
         if (next) {
           setIsForcedLandscape(true);
-          const req = container?.requestFullscreen || (video as any)?.requestFullscreen;
-          if (req) {
-            req.call(container || video).catch(() => {});
+          if (container?.requestFullscreen) {
+            container.requestFullscreen().catch(() => {});
           }
           if (screen.orientation && 'lock' in screen.orientation) {
             try {
@@ -589,7 +563,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         setIsMobileFullscreen(false);
       }
     }
-  }, [getActiveVideo]);
+  }, []);
 
   // Listen for iOS native webkit fullscreen events
   useEffect(() => {
@@ -1268,12 +1242,12 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       if (shouldRotateLandscape) {
         return {
           position: 'fixed',
-          top: '50%',
-          left: '50%',
+          top: 0,
+          left: 0,
           width: `${Math.max(windowSize.height, windowSize.width)}px`,
           height: `${Math.min(windowSize.height, windowSize.width)}px`,
-          transform: 'translate(-50%, -50%) rotate(90deg)',
-          transformOrigin: 'center center',
+          transformOrigin: 'top left',
+          transform: 'rotate(90deg) translateY(-100%)',
           zIndex: 99998,
           backgroundColor: '#000000',
           borderRadius: 0,

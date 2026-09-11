@@ -126,11 +126,12 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
       className={isMinimized ? "cv-modal-overlay cv-minimized" : "cv-modal-overlay"}
       onClick={isMinimized ? undefined : onClose}
       style={{
-        zIndex: 9999,
+        zIndex: 99999,
         background: isMinimized ? 'transparent' : '#000000',
         pointerEvents: isMinimized ? 'none' : 'auto',
         backdropFilter: isVideoFullscreen ? 'none' : undefined,
         WebkitBackdropFilter: isVideoFullscreen ? 'none' : undefined,
+        animation: isVideoFullscreen ? 'none' : undefined,
       }}
     >
       <div
@@ -145,7 +146,7 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
           padding: 0,
           display: 'flex',
           flexDirection: 'column',
-          position: 'relative',
+          position: isVideoFullscreen ? 'static' : 'relative',
           pointerEvents: isMinimized ? 'none' : 'auto',
         }}
       >
@@ -226,7 +227,7 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
                   alignItems: 'center',
                   justifyContent: 'center',
                   overflow: isVideoFullscreen ? 'visible' : 'hidden',
-                  position: 'relative',
+                  position: isVideoFullscreen ? 'static' : 'relative',
                 }
           }
         >
