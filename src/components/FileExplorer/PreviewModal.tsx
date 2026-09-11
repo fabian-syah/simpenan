@@ -104,7 +104,9 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
 
   // Video Miniplayer & PiP state
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isVideoFullscreen, setIsVideoFullscreen] = useState<boolean>(false);
 
+  // Close on Escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -125,7 +127,7 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
       onClick={isMinimized ? undefined : onClose}
       style={{
         zIndex: 9999,
-        background: isMinimized ? 'transparent' : 'rgba(0,0,0,0.92)',
+        background: isMinimized ? 'transparent' : '#000000',
         pointerEvents: isMinimized ? 'none' : 'auto',
       }}
     >
@@ -145,8 +147,8 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
           pointerEvents: isMinimized ? 'none' : 'auto',
         }}
       >
-        {/* Top Header - Hidden when minimized in Miniplayer / PiP */}
-        {!isMinimized && (
+        {/* Top Header - Hidden when minimized or when video is in fullscreen */}
+        {!isMinimized && !isVideoFullscreen && (
           <div
             className="cv-preview-header"
             style={{
@@ -246,6 +248,7 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
               onClose={onClose}
               isMinimized={isMinimized}
               onToggleMinimize={setIsMinimized}
+              onFullscreenChange={setIsVideoFullscreen}
             />
           ) : isPdf ? (
             <div style={{ width: '92%', maxWidth: '1100px', height: '85vh', borderRadius: 16, overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.15)' }}>

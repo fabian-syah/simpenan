@@ -33,6 +33,7 @@ interface VideoPlayerProps {
   onClose?: () => void;
   isMinimized?: boolean;
   onToggleMinimize?: (minimized: boolean) => void;
+  onFullscreenChange?: (isFullscreen: boolean) => void;
 }
 
 function formatTime(seconds: number): string {
@@ -61,18 +62,18 @@ const controlBtnStyle: React.CSSProperties = {
 
 const mobileMenuItemStyle: React.CSSProperties = {
   width: '100%',
-  background: 'transparent',
-  border: 'none',
+  background: 'rgba(255, 255, 255, 0.04)',
+  border: '1px solid rgba(255, 255, 255, 0.06)',
   color: '#e2e8f0',
-  padding: '8px 10px',
-  borderRadius: 8,
-  fontSize: 12.5,
+  padding: '11px 14px',
+  borderRadius: 10,
+  fontSize: 13.5,
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   textAlign: 'left',
-  transition: 'background 0.15s ease',
+  transition: 'background 0.15s ease, border-color 0.15s ease',
 };
 
 export interface SleepTimerHandle {
@@ -244,6 +245,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   onClose,
   isMinimized = false,
   onToggleMinimize,
+  onFullscreenChange,
 }: VideoPlayerProps) {
   // Dual-Video Seamless Hot-Swap Architecture (YouTube-style instant switching)
   const videoRef0 = useRef<HTMLVideoElement>(null);
@@ -280,6 +282,13 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMobileFullscreen, setIsMobileFullscreen] = useState(false);
+  const isPlayerFullscreen = isFullscreen || isMobileFullscreen;
+
+  useEffect(() => {
+    onFullscreenChange?.(isPlayerFullscreen);
+  }, [isPlayerFullscreen, onFullscreenChange]);
+
   const [playbackRate, setPlaybackRate] = useState(1);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
@@ -324,7 +333,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   const isSleepEndModeRef = useRef(false);
   const sleepTimerRef = useRef<SleepTimerHandle>(null);
   const [showMobileSettings, setShowMobileSettings] = useState(false);
-  const [mobileSettingsView, setMobileSettingsView] = useState<'root' | 'quality' | 'speed' | 'sleep'>('root');
+  const [mobileSettingsView, setMobileSettingsView] = useState<'root' | 'quality' | 'speed' | 'sleep' | 'subtitle'>('root');
 
   // Subtitle Customization State (Sync & Styling)
   const [subTab, setSubTab] = useState<'tracks' | 'sync' | 'style'>('tracks');
@@ -476,25 +485,67 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     setShowSpeedMenu(false);
   }, [getActiveVideo]);
 
-  // Handle Fullscreen
+  // Handle Fullscreen (Responsive: In-App Vertical on Mobile, Native on Desktop)
   const toggleFullscreen = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    if (!document.fullscreenElement) {
-      container.requestFullscreen().catch(() => {});
+    const isMobile = window.innerWidth <= 768;
+
+    if (isMobile) {
+      setIsMobileFullscreen((prev) => {
+        const next = !prev;
+        if (next) {
+          if (container.requestFullscreen) {
+            container.requestFullscreen().catch(() => {});
+          }
+          if (screen.orientation && 'unlock' in screen.orientation) {
+            try { (screen.orientation as any).unlock(); } catch {}
+          }
+        } else {
+          if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+          }
+        }
+        return next;
+      });
     } else {
-      document.exitFullscreen().catch(() => {});
+      if (!document.fullscreenElement) {
+        container.requestFullscreen().catch(() => {
+          setIsMobileFullscreen(true);
+        });
+      } else {
+        document.exitFullscreen().catch(() => {});
+        setIsMobileFullscreen(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const active = !!document.fullscreenElement;
+      setIsFullscreen(active);
+      if (!active && window.innerWidth > 768) {
+        setIsMobileFullscreen(false);
+      }
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
   }, []);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMobileFullscreen) {
+        setIsMobileFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isMobileFullscreen]);
 
   // Controls Auto-Hide
   const handleMouseMove = useCallback(() => {
@@ -1110,6 +1161,28 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         ['--sub-bg' as any]: subBg === 'none' ? 'transparent' : subBg === 'solid' ? '#000000' : 'rgba(0, 0, 0, 0.75)',
       };
     }
+    if (isPlayerFullscreen) {
+      return {
+        position: 'fixed',
+        inset: 0,
+        zIndex: 99998,
+        width: '100vw',
+        height: '100vh',
+        maxWidth: 'none',
+        maxHeight: 'none',
+        aspectRatio: 'auto',
+        backgroundColor: '#000000',
+        borderRadius: 0,
+        overflow: 'hidden',
+        boxShadow: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        ['--sub-font-size' as any]: subFontSize === 'small' ? '14px' : subFontSize === 'large' ? '23px' : '18px',
+        ['--sub-color' as any]: subColor,
+        ['--sub-bg' as any]: subBg === 'none' ? 'transparent' : subBg === 'solid' ? '#000000' : 'rgba(0, 0, 0, 0.75)',
+      };
+    }
     return {
       position: 'relative',
       width: '100%',
@@ -1127,7 +1200,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       ['--sub-color' as any]: subColor,
       ['--sub-bg' as any]: subBg === 'none' ? 'transparent' : subBg === 'solid' ? '#000000' : 'rgba(0, 0, 0, 0.75)',
     };
-  }, [isMinimized, subFontSize, subColor, subBg]);
+  }, [isMinimized, isPlayerFullscreen, subFontSize, subColor, subBg]);
 
   const slot0Style = useMemo<React.CSSProperties>(() => ({
     position: 'absolute',
@@ -1172,9 +1245,70 @@ export const VideoPlayer = React.memo(function VideoPlayer({
       }}
       onDoubleClick={() => {
         if (isMinimized) handleExpand();
+        else toggleFullscreen();
       }}
       style={containerStyle}
     >
+      {/* Mobile Fullscreen Top Bar (Auto-Vertical Fullscreen with Back Button) */}
+      {isPlayerFullscreen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            padding: 'max(14px, env(safe-area-inset-top, 14px)) 16px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 70%, transparent 100%)',
+            zIndex: 30,
+            opacity: showControls || !isPlaying ? 1 : 0,
+            pointerEvents: showControls || !isPlaying ? 'auto' : 'none',
+            transition: 'opacity 0.25s ease',
+          }}
+        >
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            style={{
+              background: 'rgba(15, 23, 42, 0.75)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: 10,
+              padding: '6px 12px',
+              color: '#ffffff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 12.5,
+              fontWeight: 600,
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+            }}
+            title="Keluar Layar Penuh (Esc)"
+          >
+            <ArrowLeft size={16} />
+            <span>Kembali</span>
+          </button>
+
+          <div
+            style={{
+              color: '#f8fafc',
+              fontSize: 13,
+              fontWeight: 600,
+              maxWidth: '65%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              textAlign: 'right',
+            }}
+            title={fileName}
+          >
+            {fileName}
+          </div>
+        </div>
+      )}
       {/* Auto-Resume Playback Toast Notification (Only in full player) */}
       {!isMinimized && resumeToast && (
         <div
@@ -2115,10 +2249,20 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                 <button
                   type="button"
                   onClick={() => {
-                    setShowSubMenu(!showSubMenu);
-                    setShowQualityMenu(false);
-                    setShowSpeedMenu(false);
-                    setShowSleepMenu(false);
+                    const isMobile = window.innerWidth <= 768;
+                    if (isMobile) {
+                      setMobileSettingsView('subtitle');
+                      setShowMobileSettings(true);
+                      setShowSubMenu(false);
+                      setShowQualityMenu(false);
+                      setShowSpeedMenu(false);
+                      setShowSleepMenu(false);
+                    } else {
+                      setShowSubMenu(!showSubMenu);
+                      setShowQualityMenu(false);
+                      setShowSpeedMenu(false);
+                      setShowSleepMenu(false);
+                    }
                   }}
                   style={{
                     ...controlBtnStyle,
@@ -2970,7 +3114,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
               </div>
 
               {/* MOBILE ONLY: Quick Settings Gear Menu (YouTube Style) */}
-              <div className="cv-mobile-only" style={{ position: 'relative' }}>
+              <div className="cv-mobile-only">
                 <button
                   type="button"
                   onClick={() => {
@@ -2993,269 +3137,435 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                 >
                   <Settings size={16} />
                 </button>
-
-                {showMobileSettings && (
-                  <div
-                    className="cv-video-popup-menu"
-                    style={{
-                      minWidth: 260,
-                      maxHeight: '75vh',
-                      overflowY: 'auto',
-                      padding: 10,
-                    }}
-                  >
-                    {/* View: Root */}
-                    {mobileSettingsView === 'root' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px 8px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                            Pengaturan Video
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setShowMobileSettings(false)}
-                            style={{ background: 'transparent', border: 'none', color: '#94a3b8', padding: 2, cursor: 'pointer' }}
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-
-                        {/* Kualitas Video */}
-                        <button
-                          type="button"
-                          onClick={() => setMobileSettingsView('quality')}
-                          style={mobileMenuItemStyle}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <SlidersHorizontal size={15} color="#38bdf8" />
-                            <span>Kualitas</span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#94a3b8', fontSize: 11.5 }}>
-                            <span>{isAutoQuality ? `Auto (${currentResolution || autoRecommendedRes})` : currentResolution || '1080p'}</span>
-                            <ChevronRight size={14} />
-                          </div>
-                        </button>
-
-                        {/* Kecepatan Putar */}
-                        <button
-                          type="button"
-                          onClick={() => setMobileSettingsView('speed')}
-                          style={mobileMenuItemStyle}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Timer size={15} color="#38bdf8" />
-                            <span>Kecepatan</span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#94a3b8', fontSize: 11.5 }}>
-                            <span>{playbackRate}x</span>
-                            <ChevronRight size={14} />
-                          </div>
-                        </button>
-
-                        {/* Sleep Timer */}
-                        <button
-                          type="button"
-                          onClick={() => setMobileSettingsView('sleep')}
-                          style={mobileMenuItemStyle}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Moon size={15} color="#38bdf8" />
-                            <span>Sleep Timer</span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#94a3b8', fontSize: 11.5 }}>
-                            <span>{sleepTimerRef.current?.getStatus() || 'Mati'}</span>
-                            <ChevronRight size={14} />
-                          </div>
-                        </button>
-
-                        {/* PiP */}
-                        {isPipSupported && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              togglePip();
-                              setShowMobileSettings(false);
-                            }}
-                            style={mobileMenuItemStyle}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <PictureInPicture2 size={15} color="#38bdf8" />
-                              <span>Picture-in-Picture</span>
-                            </div>
-                            <span style={{ fontSize: 11, color: isPipActive ? '#38bdf8' : '#64748b' }}>
-                              {isPipActive ? 'Aktif' : 'Mulai'}
-                            </span>
-                          </button>
-                        )}
-
-                        {/* Miniplayer */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onToggleMinimize?.(true);
-                            setShowMobileSettings(false);
-                          }}
-                          style={mobileMenuItemStyle}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Minimize2 size={15} color="#38bdf8" />
-                            <span>Layar Mengambang (Mini)</span>
-                          </div>
-                        </button>
-                      </div>
-                    )}
-
-                    {/* View: Quality */}
-                    {mobileSettingsView === 'quality' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px 8px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                          <button
-                            type="button"
-                            onClick={() => setMobileSettingsView('root')}
-                            style={{ background: 'transparent', border: 'none', color: '#38bdf8', padding: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5 }}
-                          >
-                            <ArrowLeft size={14} /> Kembali
-                          </button>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: '#f8fafc' }}>Pilih Kualitas</span>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            let bestUrl = '';
-                            let bestLabel = '720p';
-                            const v720 = getVariantForRes('720p');
-                            const v480 = getVariantForRes('480p');
-                            const v360 = getVariantForRes('360p');
-                            const v1080 = variants?.find((v) => v.name.toLowerCase().endsWith('.mp4') && v.name.toLowerCase().includes('1080p'));
-                            if (v720) { bestUrl = getDownloadUrl(v720.id); bestLabel = '720p'; }
-                            else if (v480) { bestUrl = getDownloadUrl(v480.id); bestLabel = '480p'; }
-                            else if (v360) { bestUrl = getDownloadUrl(v360.id); bestLabel = '360p'; }
-                            else if (v1080) { bestUrl = getDownloadUrl(v1080.id); bestLabel = '1080p'; }
-                            else { bestUrl = url; bestLabel = 'Auto'; }
-                            handleResolutionClick(bestLabel, bestUrl, true);
-                            setShowMobileSettings(false);
-                          }}
-                          style={{
-                            ...mobileMenuItemStyle,
-                            background: isAutoQuality ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                            color: isAutoQuality ? '#38bdf8' : '#e2e8f0',
-                          }}
-                        >
-                          <span>Auto (Optimal)</span>
-                          {isAutoQuality && <Check size={14} />}
-                        </button>
-
-                        {(['720p', '480p', '360p'] as const).map((res) => {
-                          const variant = getVariantForRes(res);
-                          const isActive = !isAutoQuality && currentResolution === res;
-                          if (!variant) return null;
-                          return (
-                            <button
-                              key={res}
-                              type="button"
-                              onClick={() => {
-                                handleResolutionClick(res, getDownloadUrl(variant.id), false);
-                                setShowMobileSettings(false);
-                              }}
-                              style={{
-                                ...mobileMenuItemStyle,
-                                background: isActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                                color: isActive ? '#38bdf8' : '#e2e8f0',
-                              }}
-                            >
-                              <span>{res}</span>
-                              {isActive && <Check size={14} />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* View: Speed */}
-                    {mobileSettingsView === 'speed' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px 8px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                          <button
-                            type="button"
-                            onClick={() => setMobileSettingsView('root')}
-                            style={{ background: 'transparent', border: 'none', color: '#38bdf8', padding: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5 }}
-                          >
-                            <ArrowLeft size={14} /> Kembali
-                          </button>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: '#f8fafc' }}>Kecepatan Putar</span>
-                        </div>
-
-                        {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
-                          <button
-                            key={rate}
-                            type="button"
-                            onClick={() => {
-                              changePlaybackRate(rate);
-                              setShowMobileSettings(false);
-                            }}
-                            style={{
-                              ...mobileMenuItemStyle,
-                              background: playbackRate === rate ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                              color: playbackRate === rate ? '#38bdf8' : '#e2e8f0',
-                            }}
-                          >
-                            <span>{rate === 1 ? '1x (Normal)' : `${rate}x`}</span>
-                            {playbackRate === rate && <Check size={14} />}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* View: Sleep Timer */}
-                    {mobileSettingsView === 'sleep' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px 8px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                          <button
-                            type="button"
-                            onClick={() => setMobileSettingsView('root')}
-                            style={{ background: 'transparent', border: 'none', color: '#38bdf8', padding: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5 }}
-                          >
-                            <ArrowLeft size={14} /> Kembali
-                          </button>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: '#f8fafc' }}>Sleep Timer</span>
-                        </div>
-
-                        {[
-                          { label: 'Matikan Timer', choice: null },
-                          { label: '15 Menit', choice: 15 },
-                          { label: '30 Menit', choice: 30 },
-                          { label: '45 Menit', choice: 45 },
-                          { label: '60 Menit (1 Jam)', choice: 60 },
-                          { label: 'Saat Video Selesai', choice: 'end' as const },
-                        ].map((item) => (
-                          <button
-                            key={item.label}
-                            type="button"
-                            onClick={() => {
-                              sleepTimerRef.current?.setChoice(item.choice);
-                              setShowMobileSettings(false);
-                            }}
-                            style={mobileMenuItemStyle}
-                          >
-                            <span>{item.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
 
               {/* Fullscreen */}
               <button
                 onClick={toggleFullscreen}
-                style={controlBtnStyle}
-                title={isFullscreen ? 'Exit Fullscreen (f)' : 'Fullscreen (f)'}
+                style={{
+                  ...controlBtnStyle,
+                  color: isPlayerFullscreen ? '#38bdf8' : '#e2e8f0',
+                  background: isPlayerFullscreen ? 'rgba(56, 189, 248, 0.25)' : 'transparent',
+                }}
+                title={isPlayerFullscreen ? 'Keluar Layar Penuh (f / Esc)' : 'Layar Penuh (f)'}
               >
-                {isFullscreen ? <Minimize size={19} /> : <Maximize size={19} />}
+                {isPlayerFullscreen ? <Minimize size={19} /> : <Maximize size={19} />}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MOBILE ONLY: Modern YouTube-Style Slide-Up Bottom Sheet */}
+      {showMobileSettings && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+          }}
+          onClick={() => setShowMobileSettings(false)}
+        >
+          <div
+            style={{
+              background: '#0f172a',
+              borderTop: '1px solid rgba(56, 189, 248, 0.35)',
+              borderRadius: '20px 20px 0 0',
+              padding: '12px 18px max(24px, env(safe-area-inset-bottom, 24px))',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.8)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              width: '100%',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Drag Handle */}
+            <div style={{ width: 40, height: 4, borderRadius: 99, background: 'rgba(255, 255, 255, 0.3)', margin: '0 auto 8px' }} />
+
+            {/* View: Root */}
+            {mobileSettingsView === 'root' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 4px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Pengaturan Video
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowMobileSettings(false)}
+                    style={{ background: 'transparent', border: 'none', color: '#94a3b8', padding: 4, cursor: 'pointer' }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Kualitas Video */}
+                <button
+                  type="button"
+                  onClick={() => setMobileSettingsView('quality')}
+                  style={mobileMenuItemStyle}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <SlidersHorizontal size={17} color="#38bdf8" />
+                    <span style={{ fontSize: 13.5, fontWeight: 500 }}>Kualitas</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', fontSize: 12 }}>
+                    <span>{isAutoQuality ? `Auto (${currentResolution || autoRecommendedRes})` : currentResolution || '1080p'}</span>
+                    <ChevronRight size={15} />
+                  </div>
+                </button>
+
+                {/* Kecepatan Putar */}
+                <button
+                  type="button"
+                  onClick={() => setMobileSettingsView('speed')}
+                  style={mobileMenuItemStyle}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Timer size={17} color="#38bdf8" />
+                    <span style={{ fontSize: 13.5, fontWeight: 500 }}>Kecepatan</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', fontSize: 12 }}>
+                    <span>{playbackRate === 1 ? '1x (Normal)' : `${playbackRate}x`}</span>
+                    <ChevronRight size={15} />
+                  </div>
+                </button>
+
+                {/* Sleep Timer */}
+                <button
+                  type="button"
+                  onClick={() => setMobileSettingsView('sleep')}
+                  style={mobileMenuItemStyle}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Moon size={17} color="#38bdf8" />
+                    <span style={{ fontSize: 13.5, fontWeight: 500 }}>Sleep Timer</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', fontSize: 12 }}>
+                    <span>{sleepTimerRef.current?.getStatus() || 'Mati'}</span>
+                    <ChevronRight size={15} />
+                  </div>
+                </button>
+
+                {/* Subtitle / CC */}
+                <button
+                  type="button"
+                  onClick={() => setMobileSettingsView('subtitle')}
+                  style={mobileMenuItemStyle}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Captions size={17} color="#38bdf8" />
+                    <span style={{ fontSize: 13.5, fontWeight: 500 }}>Subtitle (CC)</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', fontSize: 12 }}>
+                    <span>{selectedSubIndex >= 0 ? (subtitles[selectedSubIndex]?.label || 'Aktif') : 'Mati'}</span>
+                    <ChevronRight size={15} />
+                  </div>
+                </button>
+
+                {/* Picture-in-Picture */}
+                {isPipSupported && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      togglePip();
+                      setShowMobileSettings(false);
+                    }}
+                    style={mobileMenuItemStyle}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <PictureInPicture2 size={17} color="#38bdf8" />
+                      <span style={{ fontSize: 13.5, fontWeight: 500 }}>Picture-in-Picture</span>
+                    </div>
+                    <span style={{ fontSize: 12, color: isPipActive ? '#38bdf8' : '#64748b' }}>
+                      {isPipActive ? 'Aktif' : 'Mulai'}
+                    </span>
+                  </button>
+                )}
+
+                {/* Miniplayer */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggleMinimize?.(true);
+                    setShowMobileSettings(false);
+                  }}
+                  style={mobileMenuItemStyle}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Minimize2 size={17} color="#38bdf8" />
+                    <span style={{ fontSize: 13.5, fontWeight: 500 }}>Layar Mengambang (Mini)</span>
+                  </div>
+                </button>
+              </div>
+            )}
+
+            {/* View: Quality */}
+            {mobileSettingsView === 'quality' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 4px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setMobileSettingsView('root')}
+                    style={{ background: 'transparent', border: 'none', color: '#38bdf8', padding: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12.5 }}
+                  >
+                    <ArrowLeft size={16} /> Kembali
+                  </button>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>Pilih Kualitas Video</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowMobileSettings(false)}
+                    style={{ background: 'transparent', border: 'none', color: '#94a3b8', padding: 4, cursor: 'pointer' }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    let bestUrl = '';
+                    let bestLabel = '720p';
+                    const v720 = getVariantForRes('720p');
+                    const v480 = getVariantForRes('480p');
+                    const v360 = getVariantForRes('360p');
+                    const v1080 = variants?.find((v) => v.name.toLowerCase().endsWith('.mp4') && v.name.toLowerCase().includes('1080p'));
+                    if (v720) { bestUrl = getDownloadUrl(v720.id); bestLabel = '720p'; }
+                    else if (v480) { bestUrl = getDownloadUrl(v480.id); bestLabel = '480p'; }
+                    else if (v360) { bestUrl = getDownloadUrl(v360.id); bestLabel = '360p'; }
+                    else if (v1080) { bestUrl = getDownloadUrl(v1080.id); bestLabel = '1080p'; }
+                    else { bestUrl = url; bestLabel = 'Auto'; }
+                    handleResolutionClick(bestLabel, bestUrl, true);
+                    setShowMobileSettings(false);
+                  }}
+                  style={{
+                    ...mobileMenuItemStyle,
+                    background: isAutoQuality ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.03)',
+                    borderColor: isAutoQuality ? '#38bdf8' : 'rgba(255,255,255,0.06)',
+                    color: isAutoQuality ? '#38bdf8' : '#e2e8f0',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 600 }}>Auto (Optimal Rekomendasi)</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8' }}>Menyesuaikan otomatis ({autoRecommendedRes})</div>
+                  </div>
+                  {isAutoQuality && <Check size={16} />}
+                </button>
+
+                {(['720p', '480p', '360p'] as const).map((res) => {
+                  const variant = getVariantForRes(res);
+                  const isActive = !isAutoQuality && currentResolution === res;
+                  const resLabels = {
+                    '720p': '720p (HD Ringan)',
+                    '480p': '480p (SD Standar)',
+                    '360p': '360p (Hemat Kuota)',
+                  };
+                  if (!variant) return null;
+                  return (
+                    <button
+                      key={res}
+                      type="button"
+                      onClick={() => {
+                        handleResolutionClick(res, getDownloadUrl(variant.id), false);
+                        setShowMobileSettings(false);
+                      }}
+                      style={{
+                        ...mobileMenuItemStyle,
+                        background: isActive ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.03)',
+                        borderColor: isActive ? '#38bdf8' : 'rgba(255,255,255,0.06)',
+                        color: isActive ? '#38bdf8' : '#e2e8f0',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{resLabels[res]}</div>
+                        {variant.size_bytes && variant.size_bytes > 0 && (
+                          <div style={{ fontSize: 11, color: '#94a3b8' }}>{formatBytes(variant.size_bytes)}</div>
+                        )}
+                      </div>
+                      {isActive && <Check size={16} />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* View: Speed */}
+            {mobileSettingsView === 'speed' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 4px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setMobileSettingsView('root')}
+                    style={{ background: 'transparent', border: 'none', color: '#38bdf8', padding: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12.5 }}
+                  >
+                    <ArrowLeft size={16} /> Kembali
+                  </button>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>Kecepatan Putar</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowMobileSettings(false)}
+                    style={{ background: 'transparent', border: 'none', color: '#94a3b8', padding: 4, cursor: 'pointer' }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                  <button
+                    key={rate}
+                    type="button"
+                    onClick={() => {
+                      changePlaybackRate(rate);
+                      setShowMobileSettings(false);
+                    }}
+                    style={{
+                      ...mobileMenuItemStyle,
+                      background: playbackRate === rate ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.03)',
+                      borderColor: playbackRate === rate ? '#38bdf8' : 'rgba(255,255,255,0.06)',
+                      color: playbackRate === rate ? '#38bdf8' : '#e2e8f0',
+                    }}
+                  >
+                    <span>{rate === 1 ? '1x (Normal)' : `${rate}x`}</span>
+                    {playbackRate === rate && <Check size={16} />}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* View: Sleep Timer */}
+            {mobileSettingsView === 'sleep' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 4px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setMobileSettingsView('root')}
+                    style={{ background: 'transparent', border: 'none', color: '#38bdf8', padding: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12.5 }}
+                  >
+                    <ArrowLeft size={16} /> Kembali
+                  </button>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>Sleep Timer</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowMobileSettings(false)}
+                    style={{ background: 'transparent', border: 'none', color: '#94a3b8', padding: 4, cursor: 'pointer' }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {[
+                  { label: 'Matikan Timer', choice: null },
+                  { label: '15 Menit', choice: 15 },
+                  { label: '30 Menit', choice: 30 },
+                  { label: '45 Menit', choice: 45 },
+                  { label: '60 Menit (1 Jam)', choice: 60 },
+                  { label: 'Saat Video Selesai', choice: 'end' as const },
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => {
+                      sleepTimerRef.current?.setChoice(item.choice);
+                      setShowMobileSettings(false);
+                    }}
+                    style={mobileMenuItemStyle}
+                  >
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* View: Subtitle */}
+            {mobileSettingsView === 'subtitle' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 4px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setMobileSettingsView('root')}
+                    style={{ background: 'transparent', border: 'none', color: '#38bdf8', padding: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12.5 }}
+                  >
+                    <ArrowLeft size={16} /> Kembali
+                  </button>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>Subtitle (CC)</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowMobileSettings(false)}
+                    style={{ background: 'transparent', border: 'none', color: '#94a3b8', padding: 4, cursor: 'pointer' }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSubIndex(-1);
+                    setShowMobileSettings(false);
+                  }}
+                  style={{
+                    ...mobileMenuItemStyle,
+                    background: selectedSubIndex === -1 ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.03)',
+                    borderColor: selectedSubIndex === -1 ? '#38bdf8' : 'rgba(255,255,255,0.06)',
+                    color: selectedSubIndex === -1 ? '#38bdf8' : '#e2e8f0',
+                  }}
+                >
+                  <span>Matikan Subtitle (Off)</span>
+                  {selectedSubIndex === -1 && <Check size={16} />}
+                </button>
+
+                {subtitles.map((sub, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSubIndex(idx);
+                      setShowMobileSettings(false);
+                    }}
+                    style={{
+                      ...mobileMenuItemStyle,
+                      background: selectedSubIndex === idx ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.03)',
+                      borderColor: selectedSubIndex === idx ? '#38bdf8' : 'rgba(255,255,255,0.06)',
+                      color: selectedSubIndex === idx ? '#38bdf8' : '#e2e8f0',
+                    }}
+                  >
+                    <span style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {sub.label}
+                    </span>
+                    {selectedSubIndex === idx && <Check size={16} />}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMobileSettings(false);
+                    subInputRef.current?.click();
+                  }}
+                  style={{
+                    ...mobileMenuItemStyle,
+                    background: 'rgba(56, 189, 248, 0.12)',
+                    borderColor: 'rgba(56, 189, 248, 0.3)',
+                    color: '#38bdf8',
+                    fontWeight: 600,
+                    justifyContent: 'center',
+                    gap: 8,
+                    marginTop: 4,
+                  }}
+                >
+                  <Plus size={15} />
+                  Muat File Subtitle (.srt / .vtt)
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
