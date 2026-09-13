@@ -62,18 +62,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // If Google Drive, ensure public share permission asynchronously
     if (file.provider_id?.startsWith('gdrive') && (storageKey || file.storage_key)) {
-      supabaseAdmin
-        .from('storage_providers')
-        .select('endpoint_url')
-        .eq('id', file.provider_id)
-        .single()
-        .then(({ data: prov }) => {
-          const scriptUrl = prov?.endpoint_url || undefined;
-          import('../_lib/gdrive.js').then(({ makeGDrivePublic }) =>
-            makeGDrivePublic(storageKey || file.storage_key, scriptUrl)
-          ).catch(e => console.warn('Make GDrive public error:', e));
-        })
-        .catch(e => console.warn('Fetch GDrive provider endpoint error:', e));
+      (async () => {
+        const { data: prov } = await supabaseAdmin
+          .from('storage_providers')
+          .select('endpoint_url')
+          .eq('id', file.provider_id)
+          .single();
+        const scriptUrl = prov?.endpoint_url || undefined;
+        const { makeGDrivePublic } = await import('../_lib/gdrive.js');
+        await makeGDrivePublic(storageKey || file.storage_key, scriptUrl);
+      })().catch((e) => console.warn('Make GDrive public error:', e));
     }
 
     // Update the provider's used_bytes accurately from files table
