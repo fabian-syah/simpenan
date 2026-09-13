@@ -5,7 +5,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { supabaseAdmin } from '../_lib/supabase.js';
 import { completeMultipartUpload } from '../_lib/storage-providers.js';
-import { triggerTranscodeWorker } from '../_lib/transcode-trigger.js';
+// import { triggerTranscodeWorker } from '../_lib/transcode-trigger.js'; // DISABLED: GitHub Actions transcoding
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -18,10 +18,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'fileId is required' });
     }
 
-    // Direct manual trigger action
+    // Manual transcode trigger — DISABLED (GitHub Actions transcoding removed)
     if (action === 'trigger_transcode') {
-      const triggerResult = await triggerTranscodeWorker(fileId);
-      return res.status(200).json(triggerResult);
+      return res.status(200).json({
+        success: false,
+        triggered: false,
+        message: 'Video transcoding is currently disabled. Videos are stored in original format.',
+      });
     }
 
     // Fetch the file record
@@ -110,12 +113,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     await Promise.allSettled(postTasks);
 
-    // If uploaded file is a video, trigger cloud transcoding immediately
-    const isVideo = file.mime_type?.toLowerCase().startsWith('video/') ||
-      /\.(mp4|mkv|avi|mov|webm|flv|wmv|m4v|ts)$/i.test(file.name);
-    if (isVideo) {
-      triggerTranscodeWorker(fileId).catch((e) => console.warn('[TranscodeTrigger] Async error:', e));
-    }
+    // Video transcoding via GitHub Actions has been DISABLED to comply with
+    // GitHub Acceptable Use Policy. Videos are stored in original format.
+    // To re-enable, migrate transcoding to a proper compute service.
+    // const isVideo = file.mime_type?.toLowerCase().startsWith('video/') ||
+    //   /\.(mp4|mkv|avi|mov|webm|flv|wmv|m4v|ts)$/i.test(file.name);
+    // if (isVideo) {
+    //   triggerTranscodeWorker(fileId).catch((e) => console.warn('[TranscodeTrigger] Async error:', e));
+    // }
 
     return res.status(200).json({ success: true, fileId });
   } catch (err: any) {

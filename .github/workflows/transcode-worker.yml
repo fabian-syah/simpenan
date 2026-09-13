@@ -1,14 +1,26 @@
-name: Simpenan Video Transcoder Worker
+# ============================================================
+# ⚠️ DISABLED — GitHub Actions Transcoder
+# ============================================================
+# This workflow has been intentionally disabled to comply with
+# GitHub's Acceptable Use Policy. Using GitHub Actions runners
+# for FFmpeg video processing (non-CI/CD compute workload) is
+# a ToS violation that risks account suspension.
+#
+# Videos are now stored and served in their original format.
+# If multi-resolution transcoding is needed in the future,
+# migrate to a proper compute service (e.g., Cloudflare Workers,
+# Google Cloud Run, AWS Lambda with FFmpeg layer).
+# ============================================================
 
+name: Simpenan Video Transcoder Worker (DISABLED)
+
+# All triggers disabled
 on:
-  workflow_dispatch: # Manual trigger button in GitHub Actions
-  repository_dispatch:
-    types: [transcode_video]
-  schedule:
-    - cron: '*/5 * * * *' # Fast auto-runs every 5 minutes in the cloud
+  workflow_dispatch: # Keep manual trigger only for emergencies
 
 jobs:
   transcode:
+    if: false # ← This prevents the job from ever running
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
