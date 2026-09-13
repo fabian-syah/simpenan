@@ -19,6 +19,15 @@ interface TierPricing {
 }
 
 const TIER_CONFIG: Record<string, Record<string, TierPricing>> = {
+  testing: {
+    lifetime: {
+      amount: 1000,
+      storageLimitBytes: 5368709120,    // 5 GB
+      maxFileSizeBytes: 1073741824,     // 1 GB
+      isLifetime: true,
+      name: 'Paket Testing Sandbox (Rp 1.000)',
+    },
+  },
   founder: {
     lifetime: {
       amount: 99000,

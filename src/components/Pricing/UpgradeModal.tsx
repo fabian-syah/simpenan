@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Zap, Shield, Sparkles, ExternalLink, QrCode, RefreshCw } from 'lucide-react';
+import { X, Check, Zap, Shield, Sparkles, ExternalLink, QrCode, RefreshCw, ArrowLeft, CreditCard } from 'lucide-react';
 import { createPaymentOrder, checkPaymentStatus } from '../../lib/api';
 import type { UserQuota } from '../../types';
 
@@ -20,8 +20,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   onUpgradeSuccess,
   onOpenLegal,
 }) => {
-  const [selectedTier, setSelectedTier] = useState<'founder' | 'pro' | 'creator'>('founder');
+  const [selectedTier, setSelectedTier] = useState<'testing' | 'founder' | 'pro' | 'creator'>('testing');
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly' | 'lifetime'>('lifetime');
+  const [paymentTab, setPaymentTab] = useState<'qris' | 'portal'>('qris');
   const [loading, setLoading] = useState(false);
   const [activeOrder, setActiveOrder] = useState<any | null>(null);
   const [orderStatus, setOrderStatus] = useState<string | null>(null);
@@ -29,12 +30,30 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    if (selectedTier === 'founder') {
+    if (selectedTier === 'founder' || selectedTier === 'testing') {
       setBillingPeriod('lifetime');
     } else if (billingPeriod === 'lifetime') {
       setBillingPeriod('monthly');
     }
   }, [selectedTier]);
+
+  // Real-time automatic payment polling (every 3 seconds)
+  useEffect(() => {
+    if (!activeOrder?.orderId || orderStatus === 'PAID') return;
+    const interval = setInterval(async () => {
+      try {
+        const statusRes = await checkPaymentStatus(activeOrder.orderId);
+        if (statusRes.status === 'PAID') {
+          setOrderStatus('PAID');
+          onUpgradeSuccess?.();
+          clearInterval(interval);
+        }
+      } catch {
+        // silent polling error
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [activeOrder?.orderId, orderStatus, onUpgradeSuccess]);
 
   if (!isOpen) return null;
 
@@ -47,11 +66,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
       if (res && res.orderId) {
         setActiveOrder(res);
         setOrderStatus('PENDING');
-
-        // If direct payment link from Paywuz is available, open in new tab
-        if (res.paymentUrl && res.paymentUrl !== 'https://paywuz.id') {
-          window.open(res.paymentUrl, '_blank', 'noopener,noreferrer');
-        }
+        // Do NOT open external tab! Stay embedded inside modal
       }
     } catch (err: any) {
       setErrorMsg(err?.message || 'Gagal memulai transaksi pembayaran.');
@@ -193,80 +208,176 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             </div>
           )}
 
-          {/* Active Payment View */}
+          {/* Active Payment View (Embedded inside the Website) */}
           {activeOrder && orderStatus !== 'PAID' ? (
-            <div
-              style={{
-                backgroundColor: '#070b14',
-                border: '1px solid #334155',
-                borderRadius: 12,
-                padding: 24,
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ display: 'inline-flex', padding: 12, borderRadius: 50, backgroundColor: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', marginBottom: 12 }}>
-                <QrCode size={32} />
-              </div>
-              <h4 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>
-                Menunggu Pembayaran
-              </h4>
-              <p style={{ margin: '6px 0 16px', fontSize: 13, color: '#94a3b8' }}>
-                Order ID: <code style={{ color: '#38bdf8' }}>{activeOrder.orderId}</code> | Total:{' '}
-                <strong style={{ color: '#f8fafc' }}>Rp {activeOrder.amount?.toLocaleString('id-ID')}</strong>
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 360, margin: '0 auto 20px' }}>
-                {activeOrder.paymentUrl && (
-                  <a
-                    href={activeOrder.paymentUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      padding: '12px',
-                      backgroundColor: '#0284c7',
-                      color: '#ffffff',
-                      textDecoration: 'none',
-                      borderRadius: 8,
-                      fontWeight: 600,
-                      fontSize: 14,
-                    }}
-                  >
-                    <span>Buka Halaman Pembayaran Paywuz</span>
-                    <ExternalLink size={16} />
-                  </a>
-                )}
-
+            <div>
+              {/* Tabs: QRIS Langsung vs Portal Lengkap */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 <button
                   type="button"
-                  onClick={handleCheckPayment}
-                  disabled={checkingStatus}
+                  onClick={() => setPaymentTab('qris')}
                   style={{
+                    flex: 1,
+                    padding: '9px 14px',
+                    borderRadius: 8,
+                    background: paymentTab === 'qris' ? '#0284c7' : '#1e293b',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 8,
-                    padding: '11px',
-                    backgroundColor: '#1e293b',
-                    color: '#e2e8f0',
-                    border: '1px solid #334155',
-                    borderRadius: 8,
-                    fontWeight: 600,
-                    fontSize: 13,
-                    cursor: checkingStatus ? 'not-allowed' : 'pointer',
+                    gap: 6,
+                    transition: 'all 0.15s ease',
                   }}
                 >
-                  <RefreshCw size={14} className={checkingStatus ? 'animate-spin' : ''} />
-                  <span>{checkingStatus ? 'Memeriksa...' : 'Cek Status Pembayaran'}</span>
+                  <QrCode size={15} />
+                  <span>QRIS Instan (Simpenan Dark)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentTab('portal')}
+                  style={{
+                    flex: 1,
+                    padding: '9px 14px',
+                    borderRadius: 8,
+                    background: paymentTab === 'portal' ? '#0284c7' : '#1e293b',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <CreditCard size={15} />
+                  <span>Portal Paywuz (Virtual Account & Gerai)</span>
                 </button>
               </div>
 
-              <p style={{ fontSize: 11, color: '#64748b', margin: 0 }}>
-                Pembayaran diverifikasi secara otomatis melalui gateway Paywuz.id (QRIS & Virtual Account).
-              </p>
+              {paymentTab === 'qris' ? (
+                <div
+                  style={{
+                    backgroundColor: '#070b14',
+                    border: '1px solid #1e293b',
+                    borderRadius: 14,
+                    padding: '24px 20px',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 4 }}>Total Pembayaran</div>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: '#38bdf8' }}>
+                      Rp {activeOrder.amount?.toLocaleString('id-ID')}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                      Order ID: <code>{activeOrder.orderId}</code>
+                    </div>
+                  </div>
+
+                  {/* QR Code Container */}
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      padding: 16,
+                      borderRadius: 16,
+                      display: 'inline-block',
+                      margin: '6px auto 14px',
+                      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+                    }}
+                  >
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=4&data=${encodeURIComponent(activeOrder.qrString || activeOrder.paymentUrl)}`}
+                      alt="QRIS Pembayaran"
+                      style={{ width: 220, height: 220, display: 'block' }}
+                    />
+                    <div style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: '#0f172a', letterSpacing: '0.05em' }}>
+                      QRIS RESMI (GOPAY / OVO / DANA / BCA / LIVIN)
+                    </div>
+                  </div>
+
+                  {/* Live Auto-Polling Status Indicator */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                    <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                      Menunggu pembayaran via QRIS... Terdeteksi otomatis setiap 3 detik
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={handleCheckPayment}
+                      disabled={checkingStatus}
+                      className="cv-btn cv-btn-secondary"
+                      style={{ padding: '8px 16px', fontSize: 12.5 }}
+                    >
+                      <RefreshCw size={13} className={checkingStatus ? 'animate-spin' : ''} />
+                      <span>{checkingStatus ? 'Memeriksa...' : 'Cek Status Sekarang'}</span>
+                    </button>
+                    {activeOrder.paymentUrl && (
+                      <a
+                        href={activeOrder.paymentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="cv-btn cv-btn-ghost"
+                        style={{ padding: '8px 16px', fontSize: 12.5, color: '#94a3b8' }}
+                      >
+                        <ExternalLink size={13} />
+                        <span>Buka di Tab Baru</span>
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setActiveOrder(null)}
+                      className="cv-btn cv-btn-ghost"
+                      style={{ padding: '8px 16px', fontSize: 12.5, color: '#ef4444' }}
+                    >
+                      <ArrowLeft size={13} />
+                      <span>Ganti Paket</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #334155', background: '#ffffff' }}>
+                  <iframe
+                    src={activeOrder.paymentUrl}
+                    title="Paywuz Payment Portal"
+                    style={{
+                      width: '100%',
+                      height: '540px',
+                      border: 'none',
+                    }}
+                  />
+                  <div style={{ padding: '10px 16px', background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveOrder(null)}
+                      className="cv-btn cv-btn-ghost"
+                      style={{ padding: '6px 12px', fontSize: 12, color: '#94a3b8' }}
+                    >
+                      <ArrowLeft size={13} />
+                      <span>Ganti Paket</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCheckPayment}
+                      disabled={checkingStatus}
+                      className="cv-btn cv-btn-secondary"
+                      style={{ padding: '6px 14px', fontSize: 12 }}
+                    >
+                      <RefreshCw size={13} className={checkingStatus ? 'animate-spin' : ''} />
+                      <span>{checkingStatus ? 'Memeriksa...' : 'Cek Status'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : orderStatus === 'PAID' ? (
             <div
@@ -306,6 +417,41 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             </div>
           ) : (
             <>
+              {/* Paket Testing Sandbox (Rp 1.000) */}
+              <div
+                onClick={() => setSelectedTier('testing')}
+                style={{
+                  marginBottom: 16,
+                  padding: 14,
+                  borderRadius: 12,
+                  backgroundColor: selectedTier === 'testing' ? 'rgba(16, 185, 129, 0.12)' : '#070b14',
+                  border: `2px solid ${selectedTier === 'testing' ? '#10b981' : '#1e293b'}`,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#f8fafc' }}>
+                      Paket Testing Sandbox (Uji Coba QRIS)
+                    </h4>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: '#10b981', color: '#0f172a' }}>
+                      TESTING
+                    </span>
+                  </div>
+                  <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#94a3b8' }}>
+                    Kuota 5 GB Lifetime • Uji coba transaksi real-time Paywuz hanya Rp 1.000
+                  </p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#10b981' }}>Rp 1.000</div>
+                  <div style={{ fontSize: 10, color: '#64748b' }}>Bayar 1x</div>
+                </div>
+              </div>
+
               {/* Highlight Promo Card: Founder's Edition */}
               <div
                 onClick={() => setSelectedTier('founder')}
@@ -445,7 +591,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                     <Shield size={16} />
                     <span>
                       Lanjut ke Pembayaran Paywuz (
-                      {selectedTier === 'founder'
+                      {selectedTier === 'testing'
+                        ? 'Rp 1.000'
+                        : selectedTier === 'founder'
                         ? 'Rp 99.000'
                         : selectedTier === 'pro'
                         ? 'Rp 15.000'

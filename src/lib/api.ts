@@ -177,7 +177,7 @@ export async function toggleStar(fileId: string): Promise<{ success: boolean; fi
 // ============================================================
 
 export async function createPaymentOrder(
-  tier: 'founder' | 'pro' | 'creator',
+  tier: 'founder' | 'pro' | 'creator' | 'testing',
   period: 'lifetime' | 'monthly' | 'yearly',
   paymentMethod = 'ALL'
 ): Promise<{
