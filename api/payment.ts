@@ -97,9 +97,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // 1. WEBHOOK: Receive callback from Paywuz.id
   if (action === 'webhook' && req.method === 'POST') {
-    try {
       const payload = req.body || {};
-      const { orderId, status, transactionId } = payload;
+      const data = payload.data || payload;
+      const orderId = data.orderId || payload.orderId;
+      const transactionId = data.id || data.transactionId || payload.transactionId;
+      const rawStatus = (data.status || payload.status || '').toUpperCase();
 
       if (!orderId) {
         return res.status(400).json({ error: 'orderId is required' });
@@ -116,7 +118,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(404).json({ error: 'Order not found' });
       }
 
-      const isPaid = status === 'PAID' || status === 'SUCCESS' || status === 'COMPLETED';
+      const isPaid = rawStatus === 'PAID' || rawStatus === 'SUCCESS' || rawStatus === 'COMPLETED' || rawStatus === 'SETTLEMENT';
       if (isPaid) {
         // Upgrade user profile
         const tier = paymentRecord.tier;
@@ -213,10 +215,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           });
 
           if (apiRes.ok) {
-            paywuzResponse = await apiRes.json();
+            const rawJson = await apiRes.json();
+            paywuzResponse = rawJson.data || rawJson;
             paymentUrl = paywuzResponse.paymentUrl || paywuzResponse.redirectUrl || '';
-            qrString = paywuzResponse.qrString || '';
-            vaNumber = paywuzResponse.vaNumber || '';
+            qrString = paywuzResponse.paymentMethod === 'QRIS' ? (paywuzResponse.paymentNumber || '') : (paywuzResponse.qrString || '');
+            vaNumber = paywuzResponse.paymentMethod !== 'QRIS' ? (paywuzResponse.paymentNumber || '') : (paywuzResponse.vaNumber || '');
             vaBank = paywuzResponse.bank || '';
           } else {
             const errText = await apiRes.text();
