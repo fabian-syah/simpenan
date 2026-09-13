@@ -12,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { fileId, uploadId, parts, storageKey, action } = req.body;
+    const { fileId, uploadId, parts, storageKey, action, scriptUrl: passedScriptUrl } = req.body;
 
     if (!fileId) {
       return res.status(400).json({ error: 'fileId is required' });
@@ -45,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
     }
 
-    // Update file status to 'complete' (and update storage_key if provided, e.g. from MEGA)
+    // Update file status to 'complete' (and update storage_key if provided, e.g. from MEGA or GDrive)
     const updatePayload: any = { upload_status: 'complete' };
     if (storageKey) {
       updatePayload.storage_key = storageKey;
@@ -60,43 +60,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Failed to update file status' });
     }
 
-    // If Google Drive, ensure public share permission before finishing
+    // Run post-upload tasks concurrently (Google Drive permissions + Quota update)
+    const postTasks: Promise<any>[] = [];
+
+    // If Google Drive, ensure public share permission before returning
     if (file.provider_id?.startsWith('gdrive') && (storageKey || file.storage_key)) {
-      try {
-        const { data: prov } = await supabaseAdmin
-          .from('storage_providers')
-          .select('endpoint_url')
-          .eq('id', file.provider_id)
-          .single();
-        const scriptUrl = prov?.endpoint_url || undefined;
-        const { makeGDrivePublic } = await import('../_lib/gdrive.js');
-        await makeGDrivePublic(storageKey || file.storage_key, scriptUrl);
-      } catch (e: any) {
-        console.warn('Make GDrive public error:', e?.message);
-      }
+      postTasks.push((async () => {
+        try {
+          let scriptUrl = passedScriptUrl;
+          if (!scriptUrl) {
+            const { data: prov } = await supabaseAdmin
+              .from('storage_providers')
+              .select('endpoint_url')
+              .eq('id', file.provider_id)
+              .single();
+            scriptUrl = prov?.endpoint_url || undefined;
+          }
+          const { makeGDrivePublic } = await import('../_lib/gdrive.js');
+          await makeGDrivePublic(storageKey || file.storage_key, scriptUrl);
+        } catch (e: any) {
+          console.warn('Make GDrive public error:', e?.message);
+        }
+      })());
     }
 
     // Update the provider's used_bytes accurately from files table
-    try {
-      const { data: sumFiles } = await supabaseAdmin
-        .from('files')
-        .select('size_bytes')
-        .eq('provider_id', file.provider_id)
-        .eq('upload_status', 'complete')
-        .eq('is_trashed', false);
+    postTasks.push((async () => {
+      try {
+        const { data: sumFiles } = await supabaseAdmin
+          .from('files')
+          .select('size_bytes')
+          .eq('provider_id', file.provider_id)
+          .eq('upload_status', 'complete')
+          .eq('is_trashed', false);
 
-      const totalProviderBytes = (sumFiles || []).reduce(
-        (acc: number, f: any) => acc + (Number(f.size_bytes) || 0),
-        0
-      );
+        const totalProviderBytes = (sumFiles || []).reduce(
+          (acc: number, f: any) => acc + (Number(f.size_bytes) || 0),
+          0
+        );
 
-      await supabaseAdmin
-        .from('storage_providers')
-        .update({ used_bytes: totalProviderBytes })
-        .eq('id', file.provider_id);
-    } catch (quotaErr) {
-      console.warn('Quota update error:', quotaErr);
-    }
+        await supabaseAdmin
+          .from('storage_providers')
+          .update({ used_bytes: totalProviderBytes })
+          .eq('id', file.provider_id);
+      } catch (quotaErr) {
+        console.warn('Quota update error:', quotaErr);
+      }
+    })());
+
+    await Promise.allSettled(postTasks);
 
     // If uploaded file is a video, trigger cloud transcoding immediately
     const isVideo = file.mime_type?.toLowerCase().startsWith('video/') ||

@@ -122,7 +122,8 @@ export async function completeUpload(
   fileId: string,
   uploadId?: string,
   parts?: { partNumber: number; etag: string }[],
-  storageKey?: string
+  storageKey?: string,
+  scriptUrl?: string
 ): Promise<void> {
   if (IS_DEMO) {
     await delay(300);
@@ -140,7 +141,7 @@ export async function completeUpload(
   const res = await fetch(`${API_BASE}/upload/complete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fileId, uploadId, parts, storageKey }),
+    body: JSON.stringify({ fileId, uploadId, parts, storageKey, scriptUrl }),
   });
   if (!res.ok) {
     const data = await res.json();

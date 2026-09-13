@@ -207,7 +207,7 @@ export function useUpload(
           }
 
           updateUpload(taskId, { status: 'completing', progress: 99 });
-          await completeUpload(ticket.fileId, undefined, undefined, gdriveFileId);
+          await completeUpload(ticket.fileId, undefined, undefined, gdriveFileId, ticket.gdriveScriptUrl);
         } else if (needsMultipart(file.size) && ticket.presignedUrls.length > 1) {
           // Step 2a: Multipart upload — chunk and upload in parallel
           const chunks = chunkFile(file, CHUNK_SIZE);
