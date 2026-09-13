@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, Zap, Shield, Sparkles, ExternalLink, QrCode, RefreshCw, ArrowLeft, CreditCard } from 'lucide-react';
+import { X, Check, Zap, Shield, Sparkles, ExternalLink, RefreshCw, ArrowLeft } from 'lucide-react';
 import { createPaymentOrder, checkPaymentStatus } from '../../lib/api';
 import type { UserQuota } from '../../types';
 
@@ -22,7 +22,6 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
 }) => {
   const [selectedTier, setSelectedTier] = useState<'testing' | 'founder' | 'pro' | 'creator'>('testing');
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly' | 'lifetime'>('lifetime');
-  const [paymentTab, setPaymentTab] = useState<'qris' | 'portal'>('qris');
   const [loading, setLoading] = useState(false);
   const [activeOrder, setActiveOrder] = useState<any | null>(null);
   const [orderStatus, setOrderStatus] = useState<string | null>(null);
@@ -62,7 +61,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     setLoading(true);
 
     try {
-      const res = await createPaymentOrder(selectedTier, billingPeriod, 'ALL');
+      const res = await createPaymentOrder(selectedTier, billingPeriod, 'QRIS');
       if (res && res.orderId) {
         setActiveOrder(res);
         setOrderStatus('PENDING');
@@ -179,134 +178,71 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             </div>
           )}
 
-          {/* Active Payment View (Embedded inside the Website) */}
+          {/* Active Payment View (QRIS Only) */}
           {activeOrder && orderStatus !== 'PAID' ? (
-            <div>
-              {/* Tabs: QRIS Langsung vs Portal Lengkap */}
-              <div className="cv-upgrade-tabs">
-                <button
-                  type="button"
-                  onClick={() => setPaymentTab('qris')}
-                  className="cv-upgrade-tab-btn"
-                  style={{
-                    background: paymentTab === 'qris' ? '#0284c7' : '#1e293b',
-                    color: '#ffffff',
-                  }}
-                >
-                  <QrCode size={15} style={{ flexShrink: 0 }} />
-                  <span className="cv-tab-text-full">QRIS Instan (Simpenan Dark)</span>
-                  <span className="cv-tab-text-short">QRIS Instan</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentTab('portal')}
-                  className="cv-upgrade-tab-btn"
-                  style={{
-                    background: paymentTab === 'portal' ? '#0284c7' : '#1e293b',
-                    color: '#ffffff',
-                  }}
-                >
-                  <CreditCard size={15} style={{ flexShrink: 0 }} />
-                  <span className="cv-tab-text-full">Portal Paywuz (VA & Gerai)</span>
-                  <span className="cv-tab-text-short">Portal VA & Gerai</span>
-                </button>
+            <div className="cv-qris-card">
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Total Pembayaran</div>
+                <div className="cv-qris-amount">
+                  Rp {activeOrder.amount?.toLocaleString('id-ID')}
+                </div>
+                <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 2, wordBreak: 'break-all' }}>
+                  Order ID: <code>{activeOrder.orderId}</code>
+                </div>
               </div>
 
-              {paymentTab === 'qris' ? (
-                <div className="cv-qris-card">
-                  <div style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Total Pembayaran</div>
-                    <div className="cv-qris-amount">
-                      Rp {activeOrder.amount?.toLocaleString('id-ID')}
-                    </div>
-                    <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 2, wordBreak: 'break-all' }}>
-                      Order ID: <code>{activeOrder.orderId}</code>
-                    </div>
-                  </div>
-
-                  {/* QR Code Container */}
-                  <div className="cv-qris-img-box">
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=4&data=${encodeURIComponent(activeOrder.qrString || activeOrder.paymentUrl)}`}
-                      alt="QRIS Pembayaran"
-                      className="cv-qris-img"
-                    />
-                    <div className="cv-qris-img-label">
-                      QRIS RESMI (GOPAY / OVO / DANA / BCA / LIVIN)
-                    </div>
-                  </div>
-
-                  {/* Live Auto-Polling Status Indicator */}
-                  <div className="cv-qris-poll">
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block', flexShrink: 0 }} />
-                    <span>
-                      Menunggu pembayaran via QRIS... Terdeteksi otomatis setiap 3 detik
-                    </span>
-                  </div>
-
-                  <div className="cv-qris-actions">
-                    <button
-                      type="button"
-                      onClick={handleCheckPayment}
-                      disabled={checkingStatus}
-                      className="cv-btn cv-btn-secondary"
-                    >
-                      <RefreshCw size={13} className={checkingStatus ? 'animate-spin' : ''} />
-                      <span>{checkingStatus ? 'Memeriksa...' : 'Cek Status Sekarang'}</span>
-                    </button>
-                    {activeOrder.paymentUrl && (
-                      <a
-                        href={activeOrder.paymentUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="cv-btn cv-btn-ghost"
-                        style={{ color: '#94a3b8' }}
-                      >
-                        <ExternalLink size={13} />
-                        <span>Buka di Tab Baru</span>
-                      </a>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setActiveOrder(null)}
-                      className="cv-btn cv-btn-ghost"
-                      style={{ color: '#ef4444' }}
-                    >
-                      <ArrowLeft size={13} />
-                      <span>Ganti Paket</span>
-                    </button>
-                  </div>
+              {/* QR Code Container */}
+              <div className="cv-qris-img-box">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=4&data=${encodeURIComponent(activeOrder.qrString || activeOrder.paymentUrl)}`}
+                  alt="QRIS Pembayaran"
+                  className="cv-qris-img"
+                />
+                <div className="cv-qris-img-label">
+                  QRIS RESMI (GOPAY / OVO / DANA / BCA / LIVIN)
                 </div>
-              ) : (
-                <div className="cv-portal-box">
-                  <iframe
-                    src={activeOrder.paymentUrl}
-                    title="Paywuz Payment Portal"
-                    className="cv-portal-iframe"
-                  />
-                  <div style={{ padding: '8px 14px', background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                    <button
-                      type="button"
-                      onClick={() => setActiveOrder(null)}
-                      className="cv-btn cv-btn-ghost"
-                      style={{ padding: '6px 12px', fontSize: 12, color: '#94a3b8' }}
-                    >
-                      <ArrowLeft size={13} />
-                      <span>Ganti Paket</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCheckPayment}
-                      disabled={checkingStatus}
-                      className="cv-btn cv-btn-secondary"
-                      style={{ padding: '6px 14px', fontSize: 12 }}
-                    >
-                      <RefreshCw size={13} className={checkingStatus ? 'animate-spin' : ''} />
-                      <span>{checkingStatus ? 'Memeriksa...' : 'Cek Status'}</span>
-                    </button>
-                  </div>
-                </div>
-              )}
+              </div>
+
+              {/* Live Auto-Polling Status Indicator */}
+              <div className="cv-qris-poll">
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block', flexShrink: 0 }} />
+                <span>
+                  Menunggu pembayaran via QRIS... Terdeteksi otomatis setiap 3 detik
+                </span>
+              </div>
+
+              <div className="cv-qris-actions">
+                <button
+                  type="button"
+                  onClick={handleCheckPayment}
+                  disabled={checkingStatus}
+                  className="cv-btn cv-btn-secondary"
+                >
+                  <RefreshCw size={13} className={checkingStatus ? 'animate-spin' : ''} />
+                  <span>{checkingStatus ? 'Memeriksa...' : 'Cek Status Sekarang'}</span>
+                </button>
+                {activeOrder.paymentUrl && (
+                  <a
+                    href={activeOrder.paymentUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="cv-btn cv-btn-ghost"
+                    style={{ color: '#94a3b8' }}
+                  >
+                    <ExternalLink size={13} />
+                    <span>Buka di Tab Baru</span>
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveOrder(null)}
+                  className="cv-btn cv-btn-ghost"
+                  style={{ color: '#ef4444' }}
+                >
+                  <ArrowLeft size={13} />
+                  <span>Ganti Paket</span>
+                </button>
+              </div>
             </div>
           ) : orderStatus === 'PAID' ? (
             <div
