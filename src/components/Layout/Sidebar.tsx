@@ -13,6 +13,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  MessageSquarePlus,
 } from 'lucide-react';
 import type { StorageProvider, TargetStorageOption } from '../../types';
 import type { Theme } from '../../hooks/useTheme';
@@ -31,6 +32,7 @@ interface SidebarProps {
   onMoveFiles?: (fileIds: string[], targetPath: string) => Promise<void>;
   theme?: Theme;
   onThemeChange?: (theme: Theme) => void;
+  onOpenFeedback?: () => void;
 }
 
 const NAV_ITEMS = [
@@ -54,6 +56,7 @@ export function Sidebar({
   onMoveFiles,
   theme,
   onThemeChange,
+  onOpenFeedback,
 }: SidebarProps) {
   const [dragOverDrive, setDragOverDrive] = useState(false);
 
@@ -205,6 +208,36 @@ export function Sidebar({
 
       {/* Quota */}
       {quotaElement}
+
+      {/* Beta Feedback Button */}
+      {onOpenFeedback && (
+        <div style={{ padding: '0 16px 12px' }}>
+          <button
+            type="button"
+            onClick={onOpenFeedback}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: '8px 12px',
+              borderRadius: 10,
+              background: 'rgba(56, 189, 248, 0.08)',
+              border: '1px solid rgba(56, 189, 248, 0.22)',
+              color: '#38bdf8',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="Laporkan bug, saran, atau kendala kuota selama beta testing"
+          >
+            <MessageSquarePlus size={15} />
+            <span>Kirim Feedback Beta</span>
+          </button>
+        </div>
+      )}
 
       {/* Mobile Theme Switcher in Drawer */}
       {onThemeChange && theme && (

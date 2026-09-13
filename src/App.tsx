@@ -9,6 +9,7 @@ import { PreviewModal } from './components/FileExplorer/PreviewModal';
 import { ShareModal } from './components/Share/ShareModal';
 import { ManageStorageModal } from './components/Storage/ManageStorageModal';
 import { AudioPlayerBar } from './components/AudioPlayer/AudioPlayerBar';
+import { FeedbackModal } from './components/Feedback/FeedbackModal';
 import type { FileRecord, TargetStorageOption } from './types';
 import { getDownloadUrl } from './lib/api';
 import { useFiles } from './hooks/useFiles';
@@ -39,6 +40,21 @@ export default function App() {
   const [shareModalFile, setShareModalFile] = useState<FileRecord | null>(null);
   const [currentAudio, setCurrentAudio] = useState<{ file: FileRecord; url: string } | null>(null);
   const [showManageStorage, setShowManageStorage] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackContext, setFeedbackContext] = useState<{
+    file?: FileRecord | null;
+    error?: string | null;
+    category?: 'quota' | 'media' | 'upload' | 'suggestion' | 'general';
+  }>({});
+
+  const handleOpenFeedback = useCallback((ctx?: {
+    file?: FileRecord | null;
+    error?: string | null;
+    category?: 'quota' | 'media' | 'upload' | 'suggestion' | 'general';
+  }) => {
+    setFeedbackContext(ctx || { file: previewFile });
+    setShowFeedbackModal(true);
+  }, [previewFile]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -153,6 +169,7 @@ export default function App() {
         onOpenManageStorage={() => setShowManageStorage(true)}
         onMoveFiles={moveFiles}
         onRefresh={handleRefresh}
+        onOpenFeedback={() => handleOpenFeedback()}
       >
         <FileList
           files={files}
@@ -249,6 +266,7 @@ export default function App() {
         <PreviewModal 
           file={previewFile} 
           onClose={() => setPreviewFile(null)} 
+          onOpenFeedback={handleOpenFeedback}
         />
       )}
 
@@ -277,6 +295,16 @@ export default function App() {
           onRefreshQuota={fetchQuota}
         />
       )}
+
+      {/* Beta Feedback Modal */}
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        currentPath={currentPath}
+        activeFile={feedbackContext.file}
+        initialError={feedbackContext.error}
+        initialCategory={feedbackContext.category}
+      />
     </DropZone>
   );
 }

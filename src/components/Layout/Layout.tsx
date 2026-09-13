@@ -28,6 +28,7 @@ interface LayoutProps {
   onOpenManageStorage?: () => void;
   onMoveFiles?: (fileIds: string[], targetPath: string) => Promise<void>;
   onRefresh?: () => Promise<void> | void;
+  onOpenFeedback?: () => void;
 }
 
 export function Layout({
@@ -51,6 +52,7 @@ export function Layout({
   onOpenManageStorage,
   onMoveFiles,
   onRefresh,
+  onOpenFeedback,
 }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const contentRef = useRef<HTMLElement>(null);
@@ -194,6 +196,7 @@ export function Layout({
         onMoveFiles={onMoveFiles}
         theme={theme}
         onThemeChange={onThemeChange}
+        onOpenFeedback={onOpenFeedback}
       />
 
       <div className="cv-main-area">
@@ -212,6 +215,7 @@ export function Layout({
           providers={providers}
           onOpenManageStorage={onOpenManageStorage}
           onMoveFiles={onMoveFiles}
+          onOpenFeedback={onOpenFeedback}
         />
         <main
           ref={contentRef}

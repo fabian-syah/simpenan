@@ -8,9 +8,10 @@ import { VideoPlayer } from './VideoPlayer';
 interface PreviewModalProps {
   file: FileRecord;
   onClose: () => void;
+  onOpenFeedback?: (ctx?: { file?: FileRecord; error?: string; category?: 'quota' | 'media' | 'upload' | 'suggestion' | 'general' }) => void;
 }
 
-export function PreviewModal({ file, onClose }: PreviewModalProps) {
+export function PreviewModal({ file, onClose, onOpenFeedback }: PreviewModalProps) {
   const [loading, setLoading] = useState(true);
   const category = getFileCategory(file.mime_type, file.is_folder);
   const isVideo = category === 'video';
@@ -317,6 +318,7 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
                 onToggleMinimize={setIsMinimized}
                 onFullscreenChange={setIsVideoFullscreen}
                 onSwitchToGDrivePlayer={isGDriveVideo ? () => setUseGDrivePlayer(true) : undefined}
+                onReportIssue={onOpenFeedback ? (err) => onOpenFeedback({ file, error: err, category: 'media' }) : undefined}
               />
             )
           ) : isPdf ? (

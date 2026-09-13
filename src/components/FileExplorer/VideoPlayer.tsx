@@ -9,7 +9,7 @@ import {
   RotateCcw, RotateCw, Download, ExternalLink, AlertTriangle,
   RefreshCw, Check, SlidersHorizontal, Captions, Plus,
   PictureInPicture2, Moon, Timer, Type, Palette,
-  Minimize2, Maximize2, X, Settings, ChevronRight, ArrowLeft
+  Minimize2, Maximize2, X, Settings, ChevronRight, ArrowLeft, MessageSquarePlus
 } from 'lucide-react';
 import { formatBytes } from '../../types';
 import { getDownloadUrl } from '../../lib/api';
@@ -35,6 +35,7 @@ interface VideoPlayerProps {
   onToggleMinimize?: (minimized: boolean) => void;
   onFullscreenChange?: (isFullscreen: boolean) => void;
   onSwitchToGDrivePlayer?: () => void;
+  onReportIssue?: (errorMsg: string) => void;
 }
 
 function formatTime(seconds: number): string {
@@ -248,6 +249,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   onToggleMinimize,
   onFullscreenChange,
   onSwitchToGDrivePlayer,
+  onReportIssue,
 }: VideoPlayerProps) {
   // Dual-Video Seamless Hot-Swap Architecture (YouTube-style instant switching)
   const videoRef0 = useRef<HTMLVideoElement>(null);
@@ -2327,6 +2329,29 @@ export const VideoPlayer = React.memo(function VideoPlayer({
               <RefreshCw size={15} />
               Coba Putar Lagi
             </button>
+
+            {onReportIssue && (
+              <button
+                type="button"
+                onClick={() => onReportIssue(errorMessage || 'Video playback failure')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  padding: '10px 16px',
+                  borderRadius: 10,
+                  background: 'rgba(56, 189, 248, 0.1)',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                  color: '#38bdf8',
+                  cursor: 'pointer',
+                  fontSize: 13.5,
+                  fontWeight: 500,
+                }}
+              >
+                <MessageSquarePlus size={15} />
+                Laporkan Kendala
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, LayoutGrid, List, Menu, ChevronRight, Sun, Moon, Monitor, Layers, HardDrive } from 'lucide-react';
+import { Search, LayoutGrid, List, Menu, ChevronRight, Sun, Moon, Monitor, Layers, HardDrive, MessageSquarePlus } from 'lucide-react';
 import type { Theme } from '../../hooks/useTheme';
 import type { StorageProvider, TargetStorageOption } from '../../types';
 
@@ -18,6 +18,7 @@ interface HeaderProps {
   providers?: StorageProvider[];
   onOpenManageStorage?: () => void;
   onMoveFiles?: (fileIds: string[], targetPath: string) => Promise<void>;
+  onOpenFeedback?: () => void;
 }
 
 export function Header({
@@ -35,6 +36,7 @@ export function Header({
   providers,
   onOpenManageStorage,
   onMoveFiles,
+  onOpenFeedback,
 }: HeaderProps) {
   const [dragOverCrumbPath, setDragOverCrumbPath] = useState<string | null>(null);
 
@@ -212,6 +214,33 @@ export function Header({
             <Monitor size={16} />
           </button>
         </div>
+
+        {/* Beta Feedback Button */}
+        {onOpenFeedback && (
+          <button
+            type="button"
+            onClick={onOpenFeedback}
+            className="cv-btn cv-desktop-only"
+            style={{
+              padding: '6px 12px',
+              borderRadius: 8,
+              background: 'rgba(56, 189, 248, 0.1)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              color: '#38bdf8',
+              fontSize: 12,
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="Kirim Feedback & Laporan Isu Beta"
+          >
+            <MessageSquarePlus size={14} />
+            <span>Feedback</span>
+          </button>
+        )}
       </div>
     </header>
   );
