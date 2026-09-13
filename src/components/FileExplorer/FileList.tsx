@@ -1011,14 +1011,17 @@ function FileCard({
   const isVideo = category === 'video';
   const isImage = category === 'image' || (file.mime_type ? file.mime_type.startsWith('image/') : false) ||
     /\.(png|jpe?g|webp|gif|svg|avif|bmp|ico)$/i.test(file.name);
+  const [thumbRetry, setThumbRetry] = useState(0);
   const [thumbError, setThumbError] = useState(false);
 
   const thumbSrc = useMemo(() => {
     if (isImage && (file.provider_id === 'gdrive' || file.provider_id?.startsWith('gdrive')) && file.storage_key) {
-      return `https://lh3.googleusercontent.com/d/${encodeURIComponent(file.storage_key)}=s360`;
+      const cacheBust = thumbRetry > 0 ? `?retry=${thumbRetry}` : '';
+      return `https://lh3.googleusercontent.com/d/${encodeURIComponent(file.storage_key)}=s360${cacheBust}`;
     }
-    return `/api/files/thumbnail?id=${file.id}`;
-  }, [file.id, file.provider_id, file.storage_key, isImage]);
+    const cacheBust = thumbRetry > 0 ? `&retry=${thumbRetry}` : '';
+    return `/api/files/thumbnail?id=${file.id}${cacheBust}`;
+  }, [file.id, file.provider_id, file.storage_key, isImage, thumbRetry]);
 
   const customAccentColor = file.is_folder && folderColor ? folderColor : undefined;
 
@@ -1104,7 +1107,13 @@ function FileCard({
             className="cv-video-thumb-img"
             style={isImage ? { objectFit: 'cover' } : undefined}
             loading="lazy"
-            onError={() => setThumbError(true)}
+            onError={() => {
+              if (thumbRetry < 3) {
+                setTimeout(() => setThumbRetry((r) => r + 1), 1200);
+              } else {
+                setThumbError(true);
+              }
+            }}
           />
           {isVideo && (
             <div className="cv-video-play-badge">

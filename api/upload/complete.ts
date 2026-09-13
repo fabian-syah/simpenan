@@ -60,9 +60,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Failed to update file status' });
     }
 
-    // If Google Drive, ensure public share permission asynchronously
+    // If Google Drive, ensure public share permission before finishing
     if (file.provider_id?.startsWith('gdrive') && (storageKey || file.storage_key)) {
-      (async () => {
+      try {
         const { data: prov } = await supabaseAdmin
           .from('storage_providers')
           .select('endpoint_url')
@@ -71,7 +71,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const scriptUrl = prov?.endpoint_url || undefined;
         const { makeGDrivePublic } = await import('../_lib/gdrive.js');
         await makeGDrivePublic(storageKey || file.storage_key, scriptUrl);
-      })().catch((e) => console.warn('Make GDrive public error:', e));
+      } catch (e: any) {
+        console.warn('Make GDrive public error:', e?.message);
+      }
     }
 
     // Update the provider's used_bytes accurately from files table
