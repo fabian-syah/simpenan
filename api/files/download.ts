@@ -26,6 +26,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .single();
 
       if (thumbErr || !thumb) {
+        // If no video thumbnail variant exists, check if the original file itself is an image
+        const { data: originalFile } = await supabaseAdmin
+          .from('files')
+          .select('*')
+          .eq('id', fileId)
+          .eq('upload_status', 'complete')
+          .single();
+
+        if (originalFile) {
+          const isImage = originalFile.mime_type?.startsWith('image/') ||
+            /\.(png|jpe?g|webp|gif|svg|avif|bmp|ico)$/i.test(originalFile.name);
+
+          if (isImage) {
+            if (originalFile.provider_id === 'gdrive') {
+              res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+              return res.redirect(302, `https://lh3.googleusercontent.com/d/${encodeURIComponent(originalFile.storage_key)}=s400`);
+            }
+
+            if (originalFile.provider_id === 'supabase') {
+              const bucket = process.env.SUPA_BUCKET || 'drive-clone-supa-1';
+              const { data: signedData } = await supabaseAdmin
+                .storage
+                .from(bucket)
+                .createSignedUrl(originalFile.storage_key || '', 86400);
+
+              if (signedData?.signedUrl) {
+                res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+                return res.redirect(302, signedData.signedUrl);
+              }
+            }
+
+            if (originalFile.provider_id === 'mediafire') {
+              const { getMediaFireDownloadUrl } = await import('../_lib/mediafire.js');
+              const directUrl = await getMediaFireDownloadUrl(originalFile.storage_key);
+              res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+              return res.redirect(302, directUrl);
+            }
+
+            const downloadUrl = await getPresignedDownloadUrl(originalFile.provider_id, originalFile.storage_key, 86400);
+            res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+            return res.redirect(302, downloadUrl);
+          }
+        }
+
         const svgPoster = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="640" height="360">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -76,7 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (thumb.provider_id === 'gdrive') {
-        const directUrl = `https://drive.google.com/uc?export=download&id=${encodeURIComponent(thumb.storage_key)}&confirm=t`;
+        const directUrl = `https://lh3.googleusercontent.com/d/${encodeURIComponent(thumb.storage_key)}=s400`;
         res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
         return res.redirect(302, directUrl);
       }
@@ -147,11 +191,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.redirect(302, directUrl);
     }
 
-    // For Google Drive provider: redirect to Google CDN direct download URL (supports HTTP 206 Range seeking)
+    // For Google Drive provider:
     if (file.provider_id === 'gdrive') {
-      const directUrl = `https://drive.google.com/uc?export=download&id=${encodeURIComponent(file.storage_key)}&confirm=t`;
+      const isDownload = req.query.download === 'true';
+      const isImage = file.mime_type?.startsWith('image/') ||
+        /\.(png|jpe?g|webp|gif|svg|avif|bmp|ico)$/i.test(file.name);
+
+      // High-speed Google Fife CDN for images (inline rendering, CORS friendly, ultra-fast 0-300ms)
+      if (isImage && !isDownload) {
+        res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+        return res.redirect(302, `https://lh3.googleusercontent.com/d/${encodeURIComponent(file.storage_key)}`);
+      }
+
+      const gdriveDirectUrl = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(file.storage_key)}&export=download&confirm=t`;
+
+      // Handle Range requests for video/audio seeking (removes CORP same-site restriction)
+      const rangeHeader = req.headers.range;
+      if (rangeHeader && !isDownload) {
+        try {
+          const gdriveRes = await fetch(gdriveDirectUrl, {
+            headers: { Range: rangeHeader },
+          });
+
+          res.writeHead(gdriveRes.status, {
+            'Content-Range': gdriveRes.headers.get('content-range') || '',
+            'Accept-Ranges': 'bytes',
+            'Content-Length': gdriveRes.headers.get('content-length') || '',
+            'Content-Type': file.mime_type || gdriveRes.headers.get('content-type') || 'application/octet-stream',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'public, max-age=3600',
+          });
+
+          if (gdriveRes.body) {
+            const { Readable } = await import('stream');
+            // @ts-ignore
+            return Readable.fromWeb(gdriveRes.body).pipe(res);
+          }
+        } catch (streamErr) {
+          console.error('GDrive stream proxy error:', streamErr);
+        }
+      }
+
       res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
-      return res.redirect(302, directUrl);
+      return res.redirect(302, gdriveDirectUrl);
     }
 
     // For Supabase Storage, use Supabase signed URL

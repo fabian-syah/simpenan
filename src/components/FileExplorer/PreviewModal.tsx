@@ -14,7 +14,15 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
   const [loading, setLoading] = useState(true);
   const category = getFileCategory(file.mime_type, file.is_folder);
   const isVideo = category === 'video';
+  const isImage = category === 'image' || (file.mime_type ? file.mime_type.startsWith('image/') : false) ||
+    /\.(png|jpe?g|webp|gif|svg|avif|bmp|ico)$/i.test(file.name);
   const fileUrl = getDownloadUrl(file.id);
+  const imagePreviewUrl = useMemo(() => {
+    if (file.provider_id === 'gdrive' && file.storage_key && isImage) {
+      return `https://lh3.googleusercontent.com/d/${encodeURIComponent(file.storage_key)}`;
+    }
+    return fileUrl;
+  }, [file.id, file.provider_id, file.storage_key, isImage, fileUrl]);
 
   const isPdf = category === 'pdf' || file.name.toLowerCase().endsWith('.pdf');
   const isTextOrCode = category === 'code' || category === 'document' ||
@@ -172,7 +180,7 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
             </div>
             <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexShrink: 0 }}>
               <a
-                href={isVideo ? activeUrl : getDownloadUrl(file.id)}
+                href={isVideo ? activeUrl : getDownloadUrl(file.id, true)}
                 download={file.name}
                 style={{ color: '#cbd5e1', transition: 'color 0.2s', display: 'flex', alignItems: 'center' }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = '#38bdf8')}
@@ -182,7 +190,7 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
                 <Download size={20} />
               </a>
               <a
-                href={isVideo ? activeUrl : getDownloadUrl(file.id)}
+                href={isVideo ? activeUrl : (isImage ? imagePreviewUrl : getDownloadUrl(file.id))}
                 target="_blank"
                 rel="noreferrer"
                 className="cv-desktop-only"
@@ -351,7 +359,7 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
               }}
             >
               <img
-                src={fileUrl}
+                src={imagePreviewUrl}
                 alt={file.name}
                 style={{
                   maxWidth: '100%',
@@ -363,6 +371,7 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
                   cursor: 'grab',
                 }}
                 onLoad={() => setLoading(false)}
+                onError={() => setLoading(false)}
               />
 
               {/* Bottom Image Toolbar */}

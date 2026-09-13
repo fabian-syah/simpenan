@@ -273,9 +273,9 @@ export async function getQuota(): Promise<QuotaInfo> {
   return data;
 }
 
-export function getDownloadUrl(fileId: string): string {
+export function getDownloadUrl(fileId: string, download?: boolean): string {
   if (IS_DEMO) return '#';
-  return `${API_BASE}/files/download?id=${fileId}`;
+  return `${API_BASE}/files/download?id=${fileId}${download ? '&download=true' : ''}`;
 }
 
 export async function fetchVariants(fileId: string): Promise<{ id: string; name: string; size_bytes?: number }[]> {

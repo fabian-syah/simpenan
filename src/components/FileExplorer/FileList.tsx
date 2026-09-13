@@ -867,7 +867,8 @@ export function FileList({
             <>
               <a
                 className="cv-context-item"
-                href={getDownloadUrl(contextMenu.file.id)}
+                href={getDownloadUrl(contextMenu.file.id, true)}
+                download={contextMenu.file.name}
                 target="_blank"
                 rel="noreferrer"
                 style={{ textDecoration: 'none' }}
@@ -1008,7 +1009,16 @@ function FileCard({
   const category = getFileCategory(file.mime_type, file.is_folder);
   const Icon = ICON_MAP[category] || File;
   const isVideo = category === 'video';
+  const isImage = category === 'image' || (file.mime_type ? file.mime_type.startsWith('image/') : false) ||
+    /\.(png|jpe?g|webp|gif|svg|avif|bmp|ico)$/i.test(file.name);
   const [thumbError, setThumbError] = useState(false);
+
+  const thumbSrc = useMemo(() => {
+    if (isImage && file.provider_id === 'gdrive' && file.storage_key) {
+      return `https://lh3.googleusercontent.com/d/${encodeURIComponent(file.storage_key)}=s360`;
+    }
+    return `/api/files/thumbnail?id=${file.id}`;
+  }, [file.id, file.provider_id, file.storage_key, isImage]);
 
   const customAccentColor = file.is_folder && folderColor ? folderColor : undefined;
 
@@ -1082,19 +1092,25 @@ function FileCard({
         </div>
       </div>
 
-      {/* YouTube-like Video Thumbnail Preview */}
-      {isVideo && !thumbError ? (
-        <div className="cv-video-thumb-container">
+      {/* Thumbnail Preview for Video or Image */}
+      {(isVideo || isImage) && !thumbError ? (
+        <div
+          className="cv-video-thumb-container"
+          style={isImage ? { background: 'rgba(15, 23, 42, 0.6)' } : undefined}
+        >
           <img
-            src={`/api/files/thumbnail?id=${file.id}`}
+            src={thumbSrc}
             alt={file.name}
             className="cv-video-thumb-img"
+            style={isImage ? { objectFit: 'cover' } : undefined}
             loading="lazy"
             onError={() => setThumbError(true)}
           />
-          <div className="cv-video-play-badge">
-            <Play size={14} fill="white" style={{ marginLeft: 2 }} />
-          </div>
+          {isVideo && (
+            <div className="cv-video-play-badge">
+              <Play size={14} fill="white" style={{ marginLeft: 2 }} />
+            </div>
+          )}
         </div>
       ) : (
         <div
