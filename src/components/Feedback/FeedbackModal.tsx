@@ -12,11 +12,11 @@ interface FeedbackModalProps {
 }
 
 const CATEGORIES = [
-  { id: 'quota', label: '🚨 Kuota / Limit Exceeded', short: 'Kuota' },
-  { id: 'media', label: '🎬 Masalah Video / Audio', short: 'Media' },
-  { id: 'upload', label: '📥 Gagal Upload / Unduh', short: 'Upload' },
-  { id: 'suggestion', label: '💡 Saran & Ide Fitur', short: 'Saran' },
-  { id: 'general', label: '💬 Pertanyaan / Umum', short: 'Umum' },
+  { id: 'quota', label: 'Kuota / Limit Exceeded', short: 'Kuota' },
+  { id: 'media', label: 'Masalah Video / Audio', short: 'Media' },
+  { id: 'upload', label: 'Gagal Upload / Unduh', short: 'Upload' },
+  { id: 'suggestion', label: 'Saran & Ide Fitur', short: 'Saran' },
+  { id: 'general', label: 'Pertanyaan / Umum', short: 'Umum' },
 ] as const;
 
 export function FeedbackModal({
