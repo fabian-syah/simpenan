@@ -97,6 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // 1. WEBHOOK: Receive callback from Paywuz.id
   if (action === 'webhook' && req.method === 'POST') {
+    try {
       const payload = req.body || {};
       const data = payload.data || payload;
       const orderId = data.orderId || payload.orderId;
