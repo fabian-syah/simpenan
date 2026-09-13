@@ -32,9 +32,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     try {
       if (mode === 'register') {
+        const redirectUrl = typeof window !== 'undefined'
+          ? `${window.location.origin}/`
+          : 'https://simpenan-theta.vercel.app/';
+
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
+          options: {
+            emailRedirectTo: redirectUrl,
+          },
         });
 
         if (error) {
