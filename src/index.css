@@ -1517,13 +1517,20 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
    ============================================================ */
 
 /* Utility Visibility Classes */
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .cv-desktop-only {
     display: none !important;
   }
 }
-@media (min-width: 901px) {
+@media (min-width: 1025px) {
   .cv-mobile-only {
+    display: none !important;
+  }
+}
+
+/* Secondary header items (Theme 3-button toggle, Feedback button) hidden on <= 1250px to prevent header overflow */
+@media (max-width: 1250px) {
+  .cv-header-extra {
     display: none !important;
   }
 }
@@ -1534,21 +1541,12 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
     gap: 8px;
   }
   .cv-search-wrapper {
-    max-width: 260px;
+    max-width: 240px;
   }
 }
 
-@media (max-width: 1050px) {
-  .cv-storage-select-wrapper {
-    display: none !important;
-  }
-  .cv-search-wrapper {
-    max-width: 200px;
-  }
-}
-
-/* Tablet & Mobile (max-width: 900px) */
-@media (max-width: 900px) {
+/* Tablet & Mobile (max-width: 1024px) */
+@media (max-width: 1024px) {
   .cv-app-shell {
     padding: 10px 12px;
     padding-top: max(12px, calc(env(safe-area-inset-top, 0px) + 12px));
@@ -1706,24 +1704,15 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
   }
   .cv-header-left {
     gap: 6px;
-    min-width: 0;
-    flex-shrink: 1;
+    flex-shrink: 0;
   }
   .cv-breadcrumbs {
-    max-width: 90px;
-  }
-  .cv-breadcrumb-link, .cv-breadcrumb-current {
-    font-size: 12px;
-    padding: 2px 4px;
-    max-width: 80px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: none !important;
   }
 
   .cv-search-wrapper {
-    min-width: 80px;
-    flex: 1;
+    min-width: 100px;
+    flex: 1 1 auto;
   }
   .cv-header-right {
     gap: 6px;

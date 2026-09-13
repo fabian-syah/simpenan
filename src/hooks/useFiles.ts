@@ -673,7 +673,7 @@ export function useFiles(initialPath = '/', activeSection = 'drive') {
     if (activeSection === 'recent') return [{ name: 'Recent', path: '/' }];
     if (activeSection === 'trash') return [{ name: 'Trash', path: '/' }];
 
-    const segments: { name: string; path: string }[] = [{ name: 'My Drive', path: '/' }];
+    const segments: { name: string; path: string }[] = [{ name: 'Simpenan Saya', path: '/' }];
     if (currentPath !== '/') {
       const parts = currentPath.split('/').filter(Boolean);
       let accumulated = '';

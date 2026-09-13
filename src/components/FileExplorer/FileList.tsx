@@ -131,9 +131,6 @@ export function FileList({
   // Batch 2: Category Filter ('all' | 'video' | 'audio' | 'document' | 'image' | 'archive')
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'video' | 'audio' | 'document' | 'image' | 'archive'>('all');
 
-  // Batch 2: Storage Provider Filter ('all' | 'mega' | 'mediafire' | 'backblaze' | 'filebase' | 'supabase')
-  const [providerFilter, setProviderFilter] = useState<string>('all');
-
   // Batch 2: Multi-Column Sorting
   const [sortField, setSortField] = useState<'name' | 'size' | 'updated' | 'type'>(() => {
     return (localStorage.getItem('cv_sort_field') as any) || 'name';
@@ -238,10 +235,6 @@ export function FileList({
           if (file.is_folder) return false;
           if (getBroadCategory(file.mime_type, false) !== categoryFilter) return false;
         }
-        // 3. Provider Filter
-        if (providerFilter !== 'all') {
-          if (!file.is_folder && file.provider_id !== providerFilter) return false;
-        }
         return true;
       })
       .sort((a, b) => {
@@ -265,7 +258,7 @@ export function FileList({
         }
         return sortDirection === 'asc' ? cmp : -cmp;
       });
-  }, [files, searchQuery, categoryFilter, providerFilter, sortField, sortDirection]);
+  }, [files, searchQuery, categoryFilter, sortField, sortDirection]);
 
   // Pinned items in the current view
   const pinnedFiles = useMemo(() => {
@@ -477,23 +470,6 @@ export function FileList({
         </div>
 
         <div className="cv-filter-controls">
-          {/* Storage Provider Filter */}
-          <select
-            className="cv-filter-select"
-            value={providerFilter}
-            onChange={(e) => setProviderFilter(e.target.value)}
-            title="Filter Berdasarkan Cloud Storage Provider"
-            aria-label="Filter Berdasarkan Cloud Storage Provider"
-          >
-            <option value="all">Semua Cloud</option>
-            <option value="gdrive">Google Drive</option>
-            <option value="mega">MEGA.nz</option>
-            <option value="mediafire">MediaFire</option>
-            <option value="backblaze">Backblaze B2</option>
-            <option value="filebase">Filebase (IPFS)</option>
-            <option value="supabase">Supabase</option>
-          </select>
-
           {/* Sort Field Selector */}
           <select
             className="cv-filter-select"

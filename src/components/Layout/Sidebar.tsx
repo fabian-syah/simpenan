@@ -33,10 +33,11 @@ interface SidebarProps {
   theme?: Theme;
   onThemeChange?: (theme: Theme) => void;
   onOpenFeedback?: () => void;
+  isSuperAdmin?: boolean;
 }
 
 const NAV_ITEMS = [
-  { id: 'drive', label: 'My Drive', icon: HardDrive },
+  { id: 'drive', label: 'Simpenan Saya', icon: HardDrive },
   { id: 'recent', label: 'Recent', icon: Clock },
   { id: 'starred', label: 'Starred', icon: Star },
   { id: 'trash', label: 'Trash', icon: Trash2 },
@@ -57,6 +58,7 @@ export function Sidebar({
   theme,
   onThemeChange,
   onOpenFeedback,
+  isSuperAdmin = false,
 }: SidebarProps) {
   const [dragOverDrive, setDragOverDrive] = useState(false);
 
@@ -114,12 +116,12 @@ export function Sidebar({
           <span>Upload Files</span>
         </button>
 
-        {/* Target Storage Selector (Clean, No Emojis) */}
-        {onTargetProviderChange && (
+        {/* Target Storage Selector (Admin Only) */}
+        {isSuperAdmin && onTargetProviderChange && (
           <div style={{ marginTop: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--cv-text-tertiary)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               <Layers size={12} style={{ color: 'var(--cv-accent)' }} />
-              <span>Target Storage</span>
+              <span>Storage Server (Admin)</span>
             </div>
             <select
               value={targetProvider}
@@ -143,17 +145,15 @@ export function Sidebar({
               {providers && providers.length > 0 ? (
                 providers.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.display_name}
+                    {p.display_name?.replace(/Google Drive/gi, 'Simpenan Cloud')}
                   </option>
                 ))
               ) : (
                 <>
-                  <option value="gdrive">Google Drive (5 TB)</option>
-                  <option value="mega">MEGA.nz (20 GB)</option>
-                  <option value="backblaze">Backblaze B2 (10 GB)</option>
-                  <option value="mediafire">MediaFire (10 GB)</option>
-                  <option value="filebase">Filebase IPFS (5 GB - Max 25MB Video)</option>
-                  <option value="supabase">Supabase Storage (1 GB - Max 50MB)</option>
+                  <option value="gdrive">Simpenan Cloud #1 (5 TB)</option>
+                  <option value="mega">Simpenan Vault (20 GB)</option>
+                  <option value="backblaze">Simpenan B2 (10 GB)</option>
+                  <option value="mediafire">Simpenan Fast (10 GB)</option>
                 </>
               )}
             </select>
@@ -197,7 +197,7 @@ export function Sidebar({
                   console.error('Failed to move to My Drive via sidebar:', err);
                 }
               }}
-              title={isDriveTarget ? 'Lepas untuk pindahkan ke My Drive (Root)' : undefined}
+              title={isDriveTarget ? 'Lepas untuk pindahkan ke Simpenan Saya (Root)' : undefined}
             >
               <item.icon size={16} />
               <span>{item.label}</span>

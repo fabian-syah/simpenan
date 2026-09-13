@@ -154,17 +154,12 @@ export function formatDate(dateStr: string): string {
 }
 
 export function formatProviderName(providerId?: string | null): string {
-  if (!providerId) return '—';
-  if (providerId === 'gdrive') return 'Google Drive';
-  if (providerId.startsWith('gdrive_')) {
-    const num = providerId.replace('gdrive_', '');
-    return `Google Drive #${num}`;
-  }
-  if (providerId.startsWith('gdrive')) return 'Google Drive';
-  if (providerId === 'mega') return 'MEGA.nz';
-  if (providerId === 'mediafire') return 'MediaFire';
-  if (providerId === 'backblaze') return 'Backblaze';
-  if (providerId === 'filebase') return 'Filebase';
-  if (providerId === 'supabase') return 'Supabase';
-  return providerId;
+  if (!providerId) return 'Simpenan Cloud';
+  if (providerId === 'gdrive' || providerId.startsWith('gdrive')) return 'Simpenan Cloud';
+  if (providerId === 'mega') return 'Simpenan Vault';
+  if (providerId === 'mediafire') return 'Simpenan Fast';
+  if (providerId === 'backblaze') return 'Simpenan B2';
+  if (providerId === 'filebase') return 'Simpenan IPFS';
+  if (providerId === 'supabase') return 'Simpenan Core';
+  return 'Simpenan Cloud';
 }

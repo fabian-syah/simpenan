@@ -25,7 +25,6 @@ interface LayoutProps {
   targetProvider?: TargetStorageOption;
   onTargetProviderChange?: (provider: TargetStorageOption) => void;
   providers?: StorageProvider[];
-  onOpenManageStorage?: () => void;
   onMoveFiles?: (fileIds: string[], targetPath: string) => Promise<void>;
   onRefresh?: () => Promise<void> | void;
   onOpenFeedback?: () => void;
@@ -34,6 +33,7 @@ interface LayoutProps {
   onOpenAuth?: () => void;
   onOpenUpgrade?: () => void;
   onLogout?: () => void;
+  isSuperAdmin?: boolean;
 }
 
 export function Layout({
@@ -54,7 +54,6 @@ export function Layout({
   targetProvider = 'auto',
   onTargetProviderChange,
   providers,
-  onOpenManageStorage,
   onMoveFiles,
   onRefresh,
   onOpenFeedback,
@@ -63,6 +62,7 @@ export function Layout({
   onOpenAuth,
   onOpenUpgrade,
   onLogout,
+  isSuperAdmin = false,
 }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const contentRef = useRef<HTMLElement>(null);
@@ -93,10 +93,10 @@ export function Layout({
     contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Close sidebar on resize to desktop
+  // Close sidebar on resize to desktop (> 1024px)
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth > 900) setSidebarOpen(false);
+      if (window.innerWidth > 1024) setSidebarOpen(false);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -207,6 +207,7 @@ export function Layout({
         theme={theme}
         onThemeChange={onThemeChange}
         onOpenFeedback={onOpenFeedback}
+        isSuperAdmin={isSuperAdmin}
       />
 
       <div className="cv-main-area">
@@ -220,10 +221,6 @@ export function Layout({
           searchQuery={searchQuery}
           onSearchChange={onSearchChange}
           onMenuClick={() => setSidebarOpen(true)}
-          targetProvider={targetProvider}
-          onTargetProviderChange={onTargetProviderChange}
-          providers={providers}
-          onOpenManageStorage={onOpenManageStorage}
           onMoveFiles={onMoveFiles}
           onOpenFeedback={onOpenFeedback}
           user={user}

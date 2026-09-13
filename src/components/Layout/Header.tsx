@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Search, LayoutGrid, List, Menu, ChevronRight, Sun, Moon, Monitor, Layers, HardDrive, MessageSquarePlus } from 'lucide-react';
+import { Search, LayoutGrid, List, Menu, ChevronRight, Sun, Moon, Monitor, MessageSquarePlus } from 'lucide-react';
 import type { Theme } from '../../hooks/useTheme';
-import type { StorageProvider, TargetStorageOption, UserQuota } from '../../types';
+import type { UserQuota } from '../../types';
 import { User, LogIn, LogOut, Zap } from 'lucide-react';
 
 interface HeaderProps {
@@ -14,10 +14,6 @@ interface HeaderProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onMenuClick: () => void;
-  targetProvider?: TargetStorageOption;
-  onTargetProviderChange?: (provider: TargetStorageOption) => void;
-  providers?: StorageProvider[];
-  onOpenManageStorage?: () => void;
   onMoveFiles?: (fileIds: string[], targetPath: string) => Promise<void>;
   onOpenFeedback?: () => void;
   user?: any | null;
@@ -37,10 +33,6 @@ export function Header({
   searchQuery,
   onSearchChange,
   onMenuClick,
-  targetProvider = 'auto',
-  onTargetProviderChange,
-  providers,
-  onOpenManageStorage,
   onMoveFiles,
   onOpenFeedback,
   user,
@@ -119,64 +111,11 @@ export function Header({
             id="search-input"
             type="text"
             className="cv-search-input"
-            placeholder="Search in Drive"
+            placeholder="Cari berkas..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </div>
-
-        {/* Target Storage Selector (Desktop Header, Clean & Emoji-free) */}
-        {onTargetProviderChange && (
-          <div className="cv-storage-select-wrapper cv-desktop-only" title="Target cloud storage backend for uploads">
-            <Layers size={14} style={{ color: 'var(--cv-accent)' }} />
-            <select
-              value={targetProvider}
-              onChange={(e) => onTargetProviderChange(e.target.value as TargetStorageOption)}
-              className="cv-storage-select"
-              aria-label="Select storage backend"
-            >
-              <option value="auto">Auto (Balanced)</option>
-              {providers && providers.length > 0 ? (
-                providers.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.display_name}
-                  </option>
-                ))
-              ) : (
-                <>
-                  <option value="gdrive">Google Drive (5 TB)</option>
-                  <option value="mega">MEGA.nz (20 GB)</option>
-                  <option value="backblaze">Backblaze B2 (10 GB)</option>
-                  <option value="mediafire">MediaFire (10 GB)</option>
-                  <option value="filebase">Filebase (Max 25MB Video)</option>
-                  <option value="supabase">Supabase (Max 50MB)</option>
-                </>
-              )}
-            </select>
-            {onOpenManageStorage && (
-              <button
-                type="button"
-                onClick={onOpenManageStorage}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--cv-text-tertiary)',
-                  cursor: 'pointer',
-                  padding: '2px 4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  marginLeft: 2,
-                  transition: 'color 0.15s ease',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--cv-accent)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--cv-text-tertiary)')}
-                title="Kelola & Tambah Akun Cloud Storage"
-              >
-                <HardDrive size={14} />
-              </button>
-            )}
-          </div>
-        )}
 
         {/* View toggle */}
         <div className="cv-toggle-group">
@@ -198,8 +137,8 @@ export function Header({
           </button>
         </div>
 
-        {/* Theme toggle */}
-        <div className="cv-toggle-group cv-desktop-only">
+        {/* Theme toggle (Desktop Large Only) */}
+        <div className="cv-toggle-group cv-header-extra">
           <button
             className={`cv-toggle-btn ${theme === 'light' ? 'active' : ''}`}
             onClick={() => onThemeChange('light')}
@@ -226,12 +165,12 @@ export function Header({
           </button>
         </div>
 
-        {/* Beta Feedback Button */}
+        {/* Beta Feedback Button (Desktop Large Only) */}
         {onOpenFeedback && (
           <button
             type="button"
             onClick={onOpenFeedback}
-            className="cv-btn cv-desktop-only"
+            className="cv-btn cv-header-extra"
             style={{
               padding: '6px 12px',
               borderRadius: 8,
@@ -245,6 +184,8 @@ export function Header({
               gap: 6,
               cursor: 'pointer',
               transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
             title="Kirim Feedback & Laporan Isu Beta"
           >

@@ -205,9 +205,9 @@ export function PreviewModal({ file, onClose, onOpenFeedback }: PreviewModalProp
                     cursor: 'pointer',
                     transition: 'all 0.15s',
                   }}
-                  title={useGDrivePlayer ? 'Beralih ke Player Kustom' : 'Putar via Pemutar Google Drive (Streaming multi-resolusi otomatis & dukungan MKV)'}
+                  title={useGDrivePlayer ? 'Beralih ke Player Kustom' : 'Putar via Pemutar Streaming Alternatif (Streaming multi-resolusi otomatis & dukungan MKV)'}
                 >
-                  {useGDrivePlayer ? 'Player Kustom' : 'Pemutar Drive'}
+                  {useGDrivePlayer ? 'Player Kustom' : 'Pemutar Streaming'}
                 </button>
               )}
               <a

@@ -239,14 +239,16 @@ export default function App() {
           <QuotaBar
             quota={quota}
             loading={quotaLoading}
+            user={user}
+            isSuperAdmin={isSuperAdmin}
+            onOpenAuth={() => handleOpenAuth('login')}
             onOpenManageStorage={isSuperAdmin ? () => setShowManageStorage(true) : undefined}
             onOpenUpgrade={() => handleOpenUpgrade()}
           />
         }
         targetProvider={targetProvider}
-        onTargetProviderChange={handleTargetProviderChange}
+        onTargetProviderChange={isSuperAdmin ? handleTargetProviderChange : undefined}
         providers={quota?.providers}
-        onOpenManageStorage={isSuperAdmin ? () => setShowManageStorage(true) : undefined}
         onMoveFiles={moveFiles}
         onRefresh={handleRefresh}
         onOpenFeedback={() => handleOpenFeedback()}
@@ -255,6 +257,7 @@ export default function App() {
         onOpenAuth={() => handleOpenAuth('login')}
         onOpenUpgrade={() => handleOpenUpgrade()}
         onLogout={handleLogout}
+        isSuperAdmin={isSuperAdmin}
       >
         <FileList
           files={files}
