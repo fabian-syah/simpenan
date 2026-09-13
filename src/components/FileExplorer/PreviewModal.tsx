@@ -18,7 +18,7 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
     /\.(png|jpe?g|webp|gif|svg|avif|bmp|ico)$/i.test(file.name);
   const fileUrl = getDownloadUrl(file.id);
   const imagePreviewUrl = useMemo(() => {
-    if (file.provider_id === 'gdrive' && file.storage_key && isImage) {
+    if ((file.provider_id === 'gdrive' || file.provider_id?.startsWith('gdrive')) && file.storage_key && isImage) {
       return `https://lh3.googleusercontent.com/d/${encodeURIComponent(file.storage_key)}`;
     }
     return fileUrl;

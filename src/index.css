@@ -1050,7 +1050,8 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
   border: 1px solid rgba(0, 112, 243, 0.25);
 }
 
-.cv-provider-badge.gdrive {
+.cv-provider-badge.gdrive,
+.cv-provider-badge[class*="gdrive"] {
   background: rgba(15, 157, 88, 0.12);
   color: #0F9D58;
   border: 1px solid rgba(15, 157, 88, 0.25);

@@ -43,6 +43,23 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
+  if (action === "get_token") {
+    try {
+      const token = ScriptApp.getOAuthToken();
+      const folder = getOrCreateFolder();
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        token: token,
+        folderId: folder.getId()
+      })).setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({
+        success: false,
+        error: err.toString()
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   if (action === "create_resumable_upload") {
     try {
       const fileName = params.fileName || "unnamed";
@@ -65,7 +82,8 @@ function doGet(e) {
             "Authorization": "Bearer " + ScriptApp.getOAuthToken(),
             "Content-Type": "application/json; charset=UTF-8",
             "X-Upload-Content-Type": mimeType,
-            "X-Upload-Content-Length": String(fileSize)
+            "X-Upload-Content-Length": String(fileSize),
+            "Origin": origin
           },
           payload: JSON.stringify(metadata),
           muteHttpExceptions: true

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { FileRecord } from '../../types';
-import { getFileCategory, formatBytes, formatDate } from '../../types';
+import { getFileCategory, formatBytes, formatDate, formatProviderName } from '../../types';
 import { getDownloadUrl } from '../../lib/api';
 import { useScrollReveal } from '../../hooks/useScrollReveal';
 import {
@@ -1014,7 +1014,7 @@ function FileCard({
   const [thumbError, setThumbError] = useState(false);
 
   const thumbSrc = useMemo(() => {
-    if (isImage && file.provider_id === 'gdrive' && file.storage_key) {
+    if (isImage && (file.provider_id === 'gdrive' || file.provider_id?.startsWith('gdrive')) && file.storage_key) {
       return `https://lh3.googleusercontent.com/d/${encodeURIComponent(file.storage_key)}=s360`;
     }
     return `/api/files/thumbnail?id=${file.id}`;
@@ -1155,8 +1155,8 @@ function FileCard({
           {file.is_folder ? (childCount && childCount > 0 ? `${childCount} item` : 'Folder') : formatBytes(file.size_bytes)}
         </span>
         {file.provider_id && (
-          <span className={`cv-provider-badge ${file.provider_id}`}>
-            {file.provider_id === 'gdrive' ? 'Google Drive' : file.provider_id === 'mega' ? 'MEGA.nz' : file.provider_id === 'mediafire' ? 'MediaFire' : file.provider_id === 'backblaze' ? 'Backblaze' : file.provider_id === 'filebase' ? 'Filebase' : 'Supabase'}
+          <span className={`cv-provider-badge ${file.provider_id?.startsWith('gdrive') ? 'gdrive' : file.provider_id}`}>
+            {formatProviderName(file.provider_id)}
           </span>
         )}
       </div>
@@ -1319,8 +1319,8 @@ function FileRow({
       </span>
       <span>
         {file.provider_id ? (
-          <span className={`cv-provider-badge ${file.provider_id}`}>
-            {file.provider_id === 'gdrive' ? 'Google Drive' : file.provider_id === 'mega' ? 'MEGA.nz' : file.provider_id === 'mediafire' ? 'MediaFire' : file.provider_id === 'backblaze' ? 'Backblaze' : file.provider_id === 'filebase' ? 'Filebase' : 'Supabase'}
+          <span className={`cv-provider-badge ${file.provider_id?.startsWith('gdrive') ? 'gdrive' : file.provider_id}`}>
+            {formatProviderName(file.provider_id)}
           </span>
         ) : (
           <span className="cv-file-meta">—</span>

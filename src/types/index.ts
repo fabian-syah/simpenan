@@ -140,3 +140,19 @@ export function formatDate(dateStr: string): string {
   if (diffDays < 7) return `${diffDays}d ago`;
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
 }
+
+export function formatProviderName(providerId?: string | null): string {
+  if (!providerId) return '—';
+  if (providerId === 'gdrive') return 'Google Drive';
+  if (providerId.startsWith('gdrive_')) {
+    const num = providerId.replace('gdrive_', '');
+    return `Google Drive #${num}`;
+  }
+  if (providerId.startsWith('gdrive')) return 'Google Drive';
+  if (providerId === 'mega') return 'MEGA.nz';
+  if (providerId === 'mediafire') return 'MediaFire';
+  if (providerId === 'backblaze') return 'Backblaze';
+  if (providerId === 'filebase') return 'Filebase';
+  if (providerId === 'supabase') return 'Supabase';
+  return providerId;
+}

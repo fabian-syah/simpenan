@@ -25,16 +25,56 @@ export interface CreateResumableUploadParams {
 export async function createGDriveResumableUpload(
   params: CreateResumableUploadParams
 ): Promise<string> {
+  const baseUrl = params.scriptUrl?.trim() || GDRIVE_SCRIPT_URL;
+  const origin = params.origin || 'https://simpenan-theta.vercel.app';
+
+  // Strategy A: Direct Google Drive API initiation via Apps Script OAuth Token
+  // Guarantees 100% compliant CORS headers (Access-Control-Allow-Origin: origin) on PUT responses
+  try {
+    const tokenUrl = `${baseUrl}?action=get_token&secret=${encodeURIComponent(GDRIVE_SECRET)}`;
+    const tokenRes = await fetch(tokenUrl, { signal: AbortSignal.timeout(6000) });
+    const tokenData = await tokenRes.json();
+
+    if (tokenData?.success && tokenData?.token) {
+      const metadata: Record<string, any> = {
+        name: params.fileName,
+        mimeType: params.mimeType || 'application/octet-stream',
+      };
+      if (tokenData.folderId) {
+        metadata.parents = [tokenData.folderId];
+      }
+
+      const googleRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokenData.token}`,
+          'Content-Type': 'application/json; charset=UTF-8',
+          'X-Upload-Content-Type': params.mimeType || 'application/octet-stream',
+          'X-Upload-Content-Length': String(params.fileSize || 0),
+          'Origin': origin,
+        },
+        body: JSON.stringify(metadata),
+      });
+
+      const location = googleRes.headers.get('location') || googleRes.headers.get('Location');
+      if (location) {
+        return location;
+      }
+    }
+  } catch (tokenErr: any) {
+    console.warn('Direct OAuth resumable upload initiation notice, falling back to Apps Script proxy:', tokenErr?.message);
+  }
+
+  // Strategy B: Apps Script Proxy create_resumable_upload
   const query = new URLSearchParams({
     action: 'create_resumable_upload',
     secret: GDRIVE_SECRET,
     fileName: params.fileName,
     fileSize: String(params.fileSize || 0),
     mimeType: params.mimeType || 'application/octet-stream',
-    origin: params.origin || 'https://simpenan-theta.vercel.app',
+    origin,
   });
 
-  const baseUrl = params.scriptUrl?.trim() || GDRIVE_SCRIPT_URL;
   const url = `${baseUrl}?${query.toString()}`;
   const res = await fetch(url);
   const data = await res.json();
