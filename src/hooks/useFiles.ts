@@ -15,10 +15,34 @@ const fileCache = new Map<string, { files: FileRecord[]; timestamp: number }>();
 const sessionDeletedIds = new Set<string>();
 const sessionDeletedPaths = new Set<string>();
 
+// Global map for tracking moved files during session: fileId -> { targetPath, timestamp }
+// Prevents flickering resurrection ("hilang eh balik eh hilang lagi") during background revalidation
+const sessionMovedFiles = new Map<string, { targetPath: string; timestamp: number }>();
+
 export function isItemDeleted(file: FileRecord): boolean {
   if (sessionDeletedIds.has(file.id)) return true;
   for (const p of sessionDeletedPaths) {
     if (file.path === p || file.path.startsWith(p + '/')) return true;
+  }
+  return false;
+}
+
+/** Check if a file was recently moved away from the view path to avoid stale server reappearance */
+export function isFileMovedAwayFrom(file: FileRecord, viewPath: string): boolean {
+  const moveInfo = sessionMovedFiles.get(file.id);
+  if (!moveInfo) return false;
+  // Expire after 20s
+  if (Date.now() - moveInfo.timestamp > 20000) {
+    sessionMovedFiles.delete(file.id);
+    return false;
+  }
+  // If moved to a different folder and server record still has old parent_path, it's stale!
+  if (moveInfo.targetPath !== viewPath && file.parent_path !== moveInfo.targetPath) {
+    return true;
+  }
+  // Server has confirmed the move!
+  if (file.parent_path === moveInfo.targetPath) {
+    sessionMovedFiles.delete(file.id);
   }
   return false;
 }
@@ -37,7 +61,7 @@ const syncChannel =
     : null;
 
 export function broadcastSync(msg: {
-  type: 'STAR_TOGGLE' | 'FILE_DELETE' | 'FILE_RENAME' | 'FOLDER_CREATE' | 'FILES_CHANGED';
+  type: 'STAR_TOGGLE' | 'FILE_DELETE' | 'FILE_RENAME' | 'FOLDER_CREATE' | 'FILES_CHANGED' | 'FILE_MOVE';
   payload?: any;
 }) {
   try {
@@ -98,6 +122,80 @@ export function syncDeleteInCache(fileId: string) {
   });
 }
 
+/** Synchronously update cache and session tracker when files are moved */
+export function syncMoveInCache(fileIds: string[], targetPath: string, sourceFiles?: FileRecord[]) {
+  const cleanTargetPath = targetPath === '/' ? '/' : targetPath.replace(/\/+$/, '');
+  const now = Date.now();
+
+  // 1. Mark in sessionMovedFiles to block any stale resurrection
+  fileIds.forEach((id) => {
+    sessionMovedFiles.set(id, { targetPath: cleanTargetPath, timestamp: now });
+  });
+
+  // 2. Find file records being moved (from sourceFiles or from any cache)
+  const movedItems: FileRecord[] = [];
+  if (sourceFiles && sourceFiles.length > 0) {
+    sourceFiles.forEach((f) => {
+      if (fileIds.includes(f.id)) {
+        const newPath = cleanTargetPath === '/' ? `/${f.name}` : `${cleanTargetPath}/${f.name}`;
+        movedItems.push({
+          ...f,
+          parent_path: cleanTargetPath,
+          path: newPath,
+          updated_at: new Date().toISOString(),
+        });
+      }
+    });
+  } else {
+    fileCache.forEach((entry) => {
+      entry.files.forEach((f) => {
+        if (fileIds.includes(f.id) && !movedItems.some((m) => m.id === f.id)) {
+          const newPath = cleanTargetPath === '/' ? `/${f.name}` : `${cleanTargetPath}/${f.name}`;
+          movedItems.push({
+            ...f,
+            parent_path: cleanTargetPath,
+            path: newPath,
+            updated_at: new Date().toISOString(),
+          });
+        }
+      });
+    });
+  }
+
+  // 3. Update all cached path and section entries
+  fileCache.forEach((entry, key) => {
+    if (key === `path:${cleanTargetPath}`) {
+      // Add or update moved items in target path cache
+      const existingIds = new Set(entry.files.map((f) => f.id));
+      const toAdd = movedItems.filter((m) => !existingIds.has(m.id));
+      entry.files = [
+        ...toAdd,
+        ...entry.files.map((f) => {
+          const moved = movedItems.find((m) => m.id === f.id);
+          return moved || f;
+        }),
+      ];
+      entry.timestamp = now;
+    } else if (key.startsWith('path:')) {
+      // Remove moved items from other folder caches
+      entry.files = entry.files.filter((f) => !fileIds.includes(f.id));
+    } else {
+      // In starred/recent sections, update the path
+      entry.files = entry.files.map((f) => {
+        const moved = movedItems.find((m) => m.id === f.id);
+        return moved || f;
+      });
+    }
+  });
+}
+
+/** Rollback session tracker on move failure */
+export function rollbackMoveInCache(fileIds: string[]) {
+  fileIds.forEach((id) => {
+    sessionMovedFiles.delete(id);
+  });
+}
+
 /** Prefetch a folder or section into in-memory cache */
 export function prefetchFolder(path: string, section = 'drive') {
   const key = getCacheKey(section, path);
@@ -122,7 +220,9 @@ export function useFiles(initialPath = '/', activeSection = 'drive') {
   const [files, setFiles] = useState<FileRecord[]>(() => {
     const key = getCacheKey(activeSection, initialPath);
     const cached = fileCache.get(key)?.files || [];
-    return cached.filter((f) => !isItemDeleted(f));
+    return cached
+      .filter((f) => !isItemDeleted(f))
+      .filter((f) => (activeSection !== 'drive' ? true : !isFileMovedAwayFrom(f, initialPath)));
   });
   const [loading, setLoading] = useState<boolean>(() => {
     const key = getCacheKey(activeSection, initialPath);
@@ -156,8 +256,10 @@ export function useFiles(initialPath = '/', activeSection = 'drive') {
 
       try {
         const result = await listFiles(targetPath, options);
-        // Filter out any items that have been deleted in this session
-        const cleanResult = result.filter((f) => !isItemDeleted(f));
+        // Filter out any items that have been deleted or moved away in this session
+        const cleanResult = result
+          .filter((f) => !isItemDeleted(f))
+          .filter((f) => (targetSection !== 'drive' ? true : !isFileMovedAwayFrom(f, targetPath)));
         fileCache.set(key, { files: cleanResult, timestamp: Date.now() });
 
         // Only update state if this is still the active view
@@ -205,7 +307,9 @@ export function useFiles(initialPath = '/', activeSection = 'drive') {
 
     if (cached) {
       // 0ms instant render from memory cache
-      let clean = cached.files.filter((f) => !isItemDeleted(f));
+      let clean = cached.files
+        .filter((f) => !isItemDeleted(f))
+        .filter((f) => (activeSection !== 'drive' ? true : !isFileMovedAwayFrom(f, currentPath)));
       if (activeSection === 'starred') {
         clean = clean.filter((f) => f.is_starred);
       }
@@ -273,6 +377,18 @@ export function useFiles(initialPath = '/', activeSection = 'drive') {
         setFiles((prev) =>
           prev.map((f) => (f.id === payload.fileId ? { ...f, name: payload.newName } : f))
         );
+      } else if (type === 'FILE_MOVE') {
+        const { fileIds, targetPath, sourcePath } = payload || {};
+        if (fileIds && targetPath) {
+          syncMoveInCache(fileIds, targetPath);
+          if (activeSectionRef.current === 'drive') {
+            if (currentPathRef.current === sourcePath) {
+              setFiles((prev) => prev.filter((f) => !fileIds.includes(f.id)));
+            } else if (currentPathRef.current === targetPath) {
+              fetchFiles(targetPath, 'drive', false);
+            }
+          }
+        }
       } else if (type === 'FILES_CHANGED' || type === 'FOLDER_CREATE') {
         fetchFiles(currentPathRef.current, activeSectionRef.current, false);
       }
@@ -286,7 +402,11 @@ export function useFiles(initialPath = '/', activeSection = 'drive') {
     const key = getCacheKey('drive', path);
     const cached = fileCache.get(key);
     if (cached) {
-      setFiles(cached.files.filter((f) => !isItemDeleted(f)));
+      setFiles(
+        cached.files
+          .filter((f) => !isItemDeleted(f))
+          .filter((f) => !isFileMovedAwayFrom(f, path))
+      );
       setLoading(false);
     }
     setCurrentPath(path);
@@ -506,29 +626,45 @@ export function useFiles(initialPath = '/', activeSection = 'drive') {
     [files, fetchFiles]
   );
 
-  const invalidateCache = useCallback(() => {
+  const invalidateCache = useCallback(async () => {
     fileCache.clear();
     broadcastSync({ type: 'FILES_CHANGED' });
-    fetchFiles(currentPath, activeSection, false);
-  }, [currentPath, activeSection, fetchFiles]);
+    await fetchFiles(currentPathRef.current, activeSectionRef.current, false);
+  }, [fetchFiles]);
 
-  // Move files to target folder
+  // Move files to target folder (0ms optimistic + rock-solid anti-flicker sync)
   const handleMoveFiles = useCallback(
     async (fileIds: string[], targetPath: string) => {
-      // Instant optimistic UI removal if moved to a different folder
-      if (targetPath !== currentPath) {
+      const cleanTargetPath = targetPath === '/' ? '/' : targetPath.replace(/\/+$/, '');
+      const sourcePath = currentPathRef.current;
+
+      // 1. Instant 0ms optimistic UI removal if moved to a different folder
+      if (cleanTargetPath !== sourcePath) {
         setFiles((prev) => prev.filter((f) => !fileIds.includes(f.id)));
       }
+
+      // 2. Synchronize all caches & register in sessionMovedFiles to prevent resurrection
+      syncMoveInCache(fileIds, cleanTargetPath, files);
+
+      // 3. Broadcast to all open tabs and windows
+      broadcastSync({
+        type: 'FILE_MOVE',
+        payload: { fileIds, targetPath: cleanTargetPath, sourcePath },
+      });
+
+      // 4. Send API request
       try {
-        await moveFiles(fileIds, targetPath);
-        broadcastSync({ type: 'FILES_CHANGED' });
-        invalidateCache();
+        await moveFiles(fileIds, cleanTargetPath);
+        // 5. Quiet background revalidation (isFileMovedAwayFrom guarantees NO resurrection!)
+        await fetchFiles(sourcePath, activeSectionRef.current, false);
       } catch (err: any) {
-        invalidateCache();
+        // Rollback on failure
+        rollbackMoveInCache(fileIds);
+        await fetchFiles(sourcePath, activeSectionRef.current, false);
         throw err;
       }
     },
-    [currentPath, invalidateCache]
+    [files, fetchFiles]
   );
 
   // Build breadcrumb segments from path

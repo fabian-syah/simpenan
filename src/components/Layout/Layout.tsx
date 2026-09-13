@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { ChevronUp } from 'lucide-react';
+import { ChevronUp, RotateCw } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import type { Theme } from '../../hooks/useTheme';
@@ -25,6 +25,7 @@ interface LayoutProps {
   targetProvider?: TargetStorageOption;
   onTargetProviderChange?: (provider: TargetStorageOption) => void;
   onMoveFiles?: (fileIds: string[], targetPath: string) => Promise<void>;
+  onRefresh?: () => Promise<void> | void;
 }
 
 export function Layout({
@@ -45,6 +46,7 @@ export function Layout({
   targetProvider = 'auto',
   onTargetProviderChange,
   onMoveFiles,
+  onRefresh,
 }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const contentRef = useRef<HTMLElement>(null);
@@ -83,6 +85,88 @@ export function Layout({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Pull-to-refresh on mobile / touch devices
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const touchStartY = useRef(0);
+  const isPullingRef = useRef(false);
+  const pullDistanceRef = useRef(0);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el || !onRefresh) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (el.scrollTop <= 0 && !isRefreshing) {
+        touchStartY.current = e.touches[0].clientY;
+        isPullingRef.current = true;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isPullingRef.current || isRefreshing) return;
+
+      if (el.scrollTop > 0) {
+        isPullingRef.current = false;
+        pullDistanceRef.current = 0;
+        setPullDistance(0);
+        return;
+      }
+
+      const currentY = e.touches[0].clientY;
+      const deltaY = currentY - touchStartY.current;
+
+      if (deltaY > 0) {
+        // Damped logarithmic pull resistance, max 75px
+        const distance = Math.min(Math.pow(deltaY, 0.82) * 1.6, 75);
+        pullDistanceRef.current = distance;
+        setPullDistance(distance);
+
+        if (deltaY > 10 && e.cancelable) {
+          e.preventDefault();
+        }
+      } else {
+        pullDistanceRef.current = 0;
+        setPullDistance(0);
+      }
+    };
+
+    const handleTouchEnd = async () => {
+      if (!isPullingRef.current) return;
+      isPullingRef.current = false;
+
+      const triggered = pullDistanceRef.current >= 55;
+      if (triggered && onRefresh) {
+        setIsRefreshing(true);
+        setPullDistance(48); // Hold indicator while refreshing
+        try {
+          await onRefresh();
+        } catch (err) {
+          console.error('Pull-to-refresh failed:', err);
+        } finally {
+          setIsRefreshing(false);
+          pullDistanceRef.current = 0;
+          setPullDistance(0);
+        }
+      } else {
+        pullDistanceRef.current = 0;
+        setPullDistance(0);
+      }
+    };
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: true });
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    el.addEventListener('touchend', handleTouchEnd);
+    el.addEventListener('touchcancel', handleTouchEnd);
+
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('touchend', handleTouchEnd);
+      el.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [onRefresh, isRefreshing]);
 
   return (
     <div className="cv-app-shell">
@@ -127,6 +211,35 @@ export function Layout({
           className={`cv-content cv-bento-card ${isScrolled ? 'is-scrolled' : ''}`}
           onScroll={handleScroll}
         >
+          {/* Mobile Pull-to-Refresh Indicator */}
+          {(pullDistance > 0 || isRefreshing) && (
+            <div
+              className="cv-pull-to-refresh"
+              style={{
+                height: `${pullDistance}px`,
+                opacity: Math.min(pullDistance / 35, 1),
+                transition: isPullingRef.current ? 'none' : 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+              }}
+            >
+              <div className="cv-pull-indicator">
+                <RotateCw
+                  size={15}
+                  className={`cv-pull-icon ${isRefreshing ? 'cv-pull-spin' : ''}`}
+                  style={{
+                    transform: isRefreshing ? undefined : `rotate(${pullDistance * 5}deg)`,
+                  }}
+                />
+                <span className="cv-pull-text">
+                  {isRefreshing
+                    ? 'Memperbarui berkas...'
+                    : pullDistance >= 55
+                    ? 'Lepaskan untuk memuat ulang'
+                    : 'Tarik ke bawah untuk memuat ulang'}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Glowing subtle top scroll progress line */}
           <div
             className="cv-scroll-progress-bar"

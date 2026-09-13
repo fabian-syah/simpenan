@@ -72,6 +72,11 @@ export default function App() {
   });
 
   // Handlers
+  const handleRefresh = useCallback(async () => {
+    await invalidateCache();
+    await fetchQuota();
+  }, [invalidateCache, fetchQuota]);
+
   const handleSectionChange = useCallback((section: string) => {
     setActiveSection(section);
     if (section === 'drive') navigateTo('/');
@@ -108,7 +113,7 @@ export default function App() {
 
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      uploadFiles(e.target.files);
+      uploadFiles(Array.from(e.target.files));
       e.target.value = '';
     }
   }, [uploadFiles]);
@@ -137,6 +142,7 @@ export default function App() {
         targetProvider={targetProvider}
         onTargetProviderChange={handleTargetProviderChange}
         onMoveFiles={moveFiles}
+        onRefresh={handleRefresh}
       >
         <FileList
           files={files}
