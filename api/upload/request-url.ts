@@ -188,14 +188,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Google Drive Storage upload session (via Google Apps Script Web App)
+    // Google Drive Storage upload session (via Google Apps Script Web App Resumable Upload)
     if (providerId === 'gdrive') {
-      const { GDRIVE_SCRIPT_URL, GDRIVE_SECRET } = await import('../_lib/gdrive.js');
+      const { createGDriveResumableUpload, GDRIVE_SCRIPT_URL, GDRIVE_SECRET } = await import('../_lib/gdrive.js');
+      const origin = (req.headers.origin as string) || (req.headers.referer ? new URL(req.headers.referer).origin : 'https://simpenan-theta.vercel.app');
+
+      const resumableUploadUrl = await createGDriveResumableUpload({
+        fileName,
+        fileSize,
+        mimeType: contentType,
+        origin,
+      });
 
       return res.status(200).json({
         fileId: fileRecord.id,
         provider: 'gdrive',
-        presignedUrls: [GDRIVE_SCRIPT_URL],
+        presignedUrls: [resumableUploadUrl],
         gdriveScriptUrl: GDRIVE_SCRIPT_URL,
         gdriveSecret: GDRIVE_SECRET,
         uploadId: null,

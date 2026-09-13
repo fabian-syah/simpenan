@@ -60,6 +60,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Failed to update file status' });
     }
 
+    // If Google Drive, ensure public share permission asynchronously
+    if (file.provider_id === 'gdrive' && (storageKey || file.storage_key)) {
+      import('../_lib/gdrive.js').then(({ makeGDrivePublic }) =>
+        makeGDrivePublic(storageKey || file.storage_key)
+      ).catch(e => console.warn('Make GDrive public error:', e));
+    }
+
     // Update the provider's used_bytes accurately from files table
     try {
       const { data: sumFiles } = await supabaseAdmin
