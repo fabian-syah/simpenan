@@ -132,7 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (isPaid) {
         // Upgrade user profile
         const tier = paymentRecord.tier;
-        const period = paymentRecord.payload?.period || 'lifetime';
+        const period = paymentRecord.raw_payload?.period || 'lifetime';
         const tierInfo = TIER_CONFIG[tier]?.[period] || TIER_CONFIG.founder.lifetime;
 
         let subEndDate: string | null = null;
@@ -366,7 +366,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const { data: payments, error } = await supabaseAdmin
         .from('payments')
-        .select('id, order_id, tier, amount, status, paid_at, created_at')
+        .select('id, order_id, tier, amount, status, updated_at, created_at')
         .eq('user_id', authUser.id)
         .order('created_at', { ascending: false })
         .limit(20);
