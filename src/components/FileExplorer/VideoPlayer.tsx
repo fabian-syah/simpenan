@@ -525,7 +525,33 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   // Handle Fullscreen (Responsive: Auto-Rotate Landscape In-App Fullscreen on Mobile, Native Fullscreen on Desktop)
   const toggleFullscreen = useCallback(() => {
     const container = containerRef.current;
+    const video = getActiveVideo();
+    const isIos =
+      typeof navigator !== 'undefined' &&
+      (/iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
     const isMob = window.innerWidth <= 768 || window.innerHeight <= 500;
+    const isLandscape = window.innerWidth > window.innerHeight;
+
+    // 1. On iOS Safari:
+    // If user is already in landscape or requests native fullscreen, webkitEnterFullscreen removes Safari address bar 100%!
+    if (isIos && isLandscape && video && typeof (video as any).webkitEnterFullscreen === 'function') {
+      try {
+        if ((video as any).webkitDisplayingFullscreen) {
+          if (typeof (video as any).webkitExitFullscreen === 'function') {
+            (video as any).webkitExitFullscreen();
+          }
+          setIsFullscreen(false);
+          setIsMobileFullscreen(false);
+        } else {
+          (video as any).webkitEnterFullscreen();
+          setIsFullscreen(true);
+        }
+        return;
+      } catch (err) {
+        console.warn('[VideoPlayer] iOS webkitEnterFullscreen error:', err);
+      }
+    }
 
     if (isMob) {
       setIsMobileFullscreen((prev) => {
@@ -1452,6 +1478,39 @@ export const VideoPlayer = React.memo(function VideoPlayer({
               <Maximize2 size={13} />
               <span>{videoFit === 'cover' ? 'Penuh' : videoFit === 'contain' ? 'Fit' : 'Regang'}</span>
             </button>
+
+            {/* iOS Button to Eliminate Safari Address Bar */}
+            {typeof HTMLVideoElement !== 'undefined' && typeof (getActiveVideo() as any)?.webkitEnterFullscreen === 'function' && (
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    (getActiveVideo() as any)?.webkitEnterFullscreen();
+                  } catch (err) {
+                    console.warn('iOS webkitEnterFullscreen error:', err);
+                  }
+                }}
+                style={{
+                  background: 'rgba(56, 189, 248, 0.25)',
+                  border: '1px solid #38bdf8',
+                  borderRadius: 10,
+                  padding: '6px 12px',
+                  color: '#38bdf8',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                }}
+                title="Hilangkan Bar Safari (Layar Penuh Sistem)"
+              >
+                <Maximize size={13} />
+                <span>Hilangkan Bar Safari</span>
+              </button>
+            )}
           </div>
 
           <div
