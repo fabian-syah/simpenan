@@ -85,20 +85,27 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
 
   useEffect(() => {
     loadVariants();
-    // Auto-poll every 3 seconds while open until all 3 variants (720p, 480p, 360p) are ready
-    const interval = setInterval(async () => {
-      const list = await loadVariants();
-      if (list && list.length >= 3) {
-        clearInterval(interval);
-      }
-    }, 3000);
-    return () => clearInterval(interval);
+    // Transcoding is disabled — no need to auto-poll for new variants.
+    // Just load existing variants once on mount.
   }, [loadVariants]);
+
+  const isGDriveVideo =
+    isVideo &&
+    (file.provider_id === 'gdrive' || file.provider_id?.startsWith('gdrive')) &&
+    !!file.storage_key;
+
+  const gdriveEmbedUrl = useMemo(() => {
+    if (!isGDriveVideo || !file.storage_key) return null;
+    return `https://drive.google.com/file/d/${encodeURIComponent(file.storage_key)}/preview`;
+  }, [isGDriveVideo, file.storage_key]);
+
+  const [useGDrivePlayer, setUseGDrivePlayer] = useState(false);
 
   // Sync activeUrl and activeResolution when file prop changes
   useEffect(() => {
     setActiveUrl(getDownloadUrl(file.id));
     setActiveResolution('Original');
+    setUseGDrivePlayer(false);
   }, [file.id]);
 
   const handleSelectResolution = useCallback((res: string, targetUrl?: string) => {
@@ -178,7 +185,30 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
             <div style={{ color: 'white', fontWeight: 600, fontSize: 15, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 12 }}>
               {file.name}
             </div>
-            <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexShrink: 0 }}>
+              {isGDriveVideo && (
+                <button
+                  type="button"
+                  onClick={() => setUseGDrivePlayer((p) => !p)}
+                  style={{
+                    background: useGDrivePlayer ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(56, 189, 248, 0.35)',
+                    color: useGDrivePlayer ? '#38bdf8' : '#e2e8f0',
+                    padding: '4px 10px',
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                  title={useGDrivePlayer ? 'Beralih ke Player Kustom' : 'Putar via Pemutar Google Drive (Streaming multi-resolusi otomatis & dukungan MKV)'}
+                >
+                  {useGDrivePlayer ? '🎬 Player Kustom' : '⚡ Pemutar Drive'}
+                </button>
+              )}
               <a
                 href={isVideo ? activeUrl : getDownloadUrl(file.id, true)}
                 download={file.name}
@@ -247,20 +277,48 @@ export function PreviewModal({ file, onClose }: PreviewModalProps) {
           )}
 
           {isVideo ? (
-            <VideoPlayer
-              url={activeUrl}
-              fileName={file.name}
-              fileSize={file.size_bytes}
-              mimeType={file.mime_type}
-              fileId={file.id}
-              variants={variants}
-              currentResolution={activeResolution}
-              onSelectResolution={handleSelectResolution}
-              onClose={onClose}
-              isMinimized={isMinimized}
-              onToggleMinimize={setIsMinimized}
-              onFullscreenChange={setIsVideoFullscreen}
-            />
+            useGDrivePlayer && gdriveEmbedUrl ? (
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: '#000000',
+                  paddingTop: isVideoFullscreen ? 0 : 48,
+                }}
+              >
+                <iframe
+                  src={gdriveEmbedUrl}
+                  title={file.name}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    minHeight: '75vh',
+                    border: 'none',
+                  }}
+                  allow="autoplay; encrypted-media; fullscreen"
+                  allowFullScreen
+                />
+              </div>
+            ) : (
+              <VideoPlayer
+                url={activeUrl}
+                fileName={file.name}
+                fileSize={file.size_bytes}
+                mimeType={file.mime_type}
+                fileId={file.id}
+                variants={variants}
+                currentResolution={activeResolution}
+                onSelectResolution={handleSelectResolution}
+                onClose={onClose}
+                isMinimized={isMinimized}
+                onToggleMinimize={setIsMinimized}
+                onFullscreenChange={setIsVideoFullscreen}
+                onSwitchToGDrivePlayer={isGDriveVideo ? () => setUseGDrivePlayer(true) : undefined}
+              />
+            )
           ) : isPdf ? (
             <div style={{ width: '92%', maxWidth: '1100px', height: '85vh', borderRadius: 16, overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.15)' }}>
               <iframe

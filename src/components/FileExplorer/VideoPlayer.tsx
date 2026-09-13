@@ -34,6 +34,7 @@ interface VideoPlayerProps {
   isMinimized?: boolean;
   onToggleMinimize?: (minimized: boolean) => void;
   onFullscreenChange?: (isFullscreen: boolean) => void;
+  onSwitchToGDrivePlayer?: () => void;
 }
 
 function formatTime(seconds: number): string {
@@ -246,6 +247,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   isMinimized = false,
   onToggleMinimize,
   onFullscreenChange,
+  onSwitchToGDrivePlayer,
 }: VideoPlayerProps) {
   // Dual-Video Seamless Hot-Swap Architecture (YouTube-style instant switching)
   const videoRef0 = useRef<HTMLVideoElement>(null);
@@ -342,8 +344,6 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   const [isSwitchingRes, setIsSwitchingRes] = useState(false);
   const [targetResLabel, setTargetResLabel] = useState<string | null>(null);
   const [isAutoQuality, setIsAutoQuality] = useState(true);
-  const [isTriggeringWorker, setIsTriggeringWorker] = useState(false);
-  const [triggerSuccessMsg, setTriggerSuccessMsg] = useState<string | null>(null);
 
   // Position restore when mounting initial file
   const savedTimeRef = useRef<number>(0);
@@ -1100,7 +1100,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         );
       } else if (isMkv) {
         setErrorMessage(
-          'Browser tidak mendukung format container .mkv atau codec anime 10-bit secara native. Silakan unduh file untuk diputar di VLC Player.'
+          'Browser tidak mendukung format container .mkv atau codec anime 10-bit secara native. Silakan gunakan Pemutar Google Drive atau unduh file untuk diputar di VLC Player.'
         );
       } else {
         setErrorMessage(
@@ -1198,31 +1198,6 @@ export const VideoPlayer = React.memo(function VideoPlayer({
     },
     [activeSlot, url0, url1, hasError, getActiveVideo, onSelectResolution]
   );
-
-  const triggerCloudTranscode = useCallback(async () => {
-    if (!fileId || isTriggeringWorker) return;
-    setIsTriggeringWorker(true);
-    setTriggerSuccessMsg(null);
-    try {
-      const res = await fetch('/api/upload/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'trigger_transcode', fileId }),
-      });
-      const data = await res.json();
-      if (data.triggered) {
-        setTriggerSuccessMsg('⚡ Cloud Worker GitHub Actions berhasil dijalankan!');
-      } else {
-        setTriggerSuccessMsg('⏰ Worker otomatis berjalan via cron 5 menit cloud.');
-      }
-      setTimeout(() => setTriggerSuccessMsg(null), 6000);
-    } catch {
-      setTriggerSuccessMsg('Worker dijadwalkan via cron cloud.');
-      setTimeout(() => setTriggerSuccessMsg(null), 4000);
-    } finally {
-      setIsTriggeringWorker(false);
-    }
-  }, [fileId, isTriggeringWorker]);
 
   const handleSubtitleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -2263,24 +2238,30 @@ export const VideoPlayer = React.memo(function VideoPlayer({
               );
             })()}
 
-            {/* If no variant exists yet, show worker processing message */}
-            {(!variants || variants.length === 0) && (
-              <div
+            {/* If Google Drive Player is available, offer prominent button */}
+            {onSwitchToGDrivePlayer && (
+              <button
+                type="button"
+                onClick={onSwitchToGDrivePlayer}
+                className="cv-btn-primary"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: 10,
+                  gap: 8,
                   padding: '10px 20px',
                   borderRadius: 10,
-                  background: 'rgba(56, 189, 248, 0.12)',
-                  border: '1px solid rgba(56, 189, 248, 0.25)',
-                  color: '#38bdf8',
-                  fontSize: 13.5,
+                  fontWeight: 600,
+                  fontSize: 14,
+                  boxShadow: '0 4px 20px rgba(2, 132, 199, 0.4)',
+                  cursor: 'pointer',
+                  border: 'none',
+                  background: '#0284c7',
+                  color: '#ffffff',
                 }}
               >
-                <div className="cv-spinner" style={{ width: 15, height: 15, borderWidth: 2 }} />
-                <span>Format MP4 sedang diproses oleh Background Worker...</span>
-              </div>
+                <Play size={16} fill="white" />
+                Putar via Pemutar Google Drive
+              </button>
             )}
 
             <a
@@ -3093,9 +3074,10 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                       );
                     })()}
 
-                    {/* Standard Resolutions: 720p, 480p, 360p */}
+                    {/* Standard Resolutions: 720p, 480p, 360p — only show if transcoded variant exists */}
                     {(['720p', '480p', '360p'] as const).map((res) => {
                       const variant = getVariantForRes(res);
+                      if (!variant) return null; // Don't show options for non-existent transcoded variants
                       const isActive = !isAutoQuality && currentResolution === res;
                       const resLabels = {
                         '720p': '720p (HD Ringan)',
@@ -3103,59 +3085,34 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                         '360p': '360p (Hemat Kuota)',
                       };
 
-                      if (variant) {
-                        return (
-                          <button
-                            key={res}
-                            type="button"
-                            onClick={() => handleResolutionClick(res, getDownloadUrl(variant.id), false)}
-                            style={{
-                              background: isActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                              color: isActive ? '#38bdf8' : '#e2e8f0',
-                              border: 'none',
-                              padding: '6px 8px',
-                              borderRadius: 8,
-                              fontSize: 12,
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              textAlign: 'left',
-                              transition: 'background 0.15s',
-                            }}
-                          >
-                            <div>
-                              <div style={{ fontWeight: 600 }}>{resLabels[res]}</div>
-                              {variant.size_bytes && variant.size_bytes > 0 && (
-                                <div style={{ fontSize: 10.5, color: '#94a3b8' }}>{formatBytes(variant.size_bytes)}</div>
-                              )}
-                            </div>
-                            {isActive && <Check size={14} />}
-                          </button>
-                        );
-                      }
-
                       return (
-                        <div
+                        <button
                           key={res}
+                          type="button"
+                          onClick={() => handleResolutionClick(res, getDownloadUrl(variant.id), false)}
                           style={{
+                            background: isActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                            color: isActive ? '#38bdf8' : '#e2e8f0',
+                            border: 'none',
                             padding: '6px 8px',
                             borderRadius: 8,
-                            background: 'rgba(255, 255, 255, 0.03)',
+                            fontSize: 12,
+                            cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            opacity: 0.75,
+                            textAlign: 'left',
+                            transition: 'background 0.15s',
                           }}
                         >
                           <div>
-                            <div style={{ fontSize: 12, fontWeight: 500, color: '#94a3b8' }}>{resLabels[res]}</div>
-                            <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>Menyiapkan di Cloud Worker...</div>
+                            <div style={{ fontWeight: 600 }}>{resLabels[res]}</div>
+                            {variant.size_bytes && variant.size_bytes > 0 && (
+                              <div style={{ fontSize: 10.5, color: '#94a3b8' }}>{formatBytes(variant.size_bytes)}</div>
+                            )}
                           </div>
-                          <span style={{ fontSize: 10, color: '#38bdf8', background: 'rgba(56, 189, 248, 0.1)', padding: '2px 6px', borderRadius: 4, fontWeight: 500 }}>
-                            Auto-Worker
-                          </span>
-                        </div>
+                          {isActive && <Check size={14} />}
+                        </button>
                       );
                     })}
 
@@ -3196,46 +3153,18 @@ export const VideoPlayer = React.memo(function VideoPlayer({
                         );
                       })}
 
-                    {/* Missing variants accelerator button */}
-                    {variants.length < 3 && (
-                      <div style={{ marginTop: 4, paddingTop: 6, borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                        <button
-                          type="button"
-                          onClick={triggerCloudTranscode}
-                          disabled={isTriggeringWorker}
-                          style={{
-                            width: '100%',
-                            background: 'rgba(56, 189, 248, 0.12)',
-                            border: '1px solid rgba(56, 189, 248, 0.3)',
-                            color: '#38bdf8',
-                            padding: '6px 8px',
-                            borderRadius: 6,
-                            fontSize: 11,
-                            fontWeight: 600,
-                            cursor: isTriggeringWorker ? 'not-allowed' : 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 6,
-                          }}
-                        >
-                          {isTriggeringWorker ? (
-                            <>
-                              <div className="cv-spinner" style={{ width: 11, height: 11, borderWidth: 1.5 }} />
-                              <span>Memicu Worker Cloud...</span>
-                            </>
-                          ) : (
-                            <>
-                              <span>⚡</span>
-                              <span>Percepat Transcode Cloud</span>
-                            </>
-                          )}
-                        </button>
-                        {triggerSuccessMsg && (
-                          <div style={{ fontSize: 10, color: '#38bdf8', marginTop: 4, textAlign: 'center', lineHeight: 1.3 }}>
-                            {triggerSuccessMsg}
-                          </div>
-                        )}
+                    {/* Info: transcoding is disabled, video plays in original format */}
+                    {variants.length === 0 && (
+                      <div style={{
+                        marginTop: 4,
+                        paddingTop: 6,
+                        borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                        fontSize: 10.5,
+                        color: '#94a3b8',
+                        textAlign: 'center',
+                        lineHeight: 1.4,
+                      }}>
+                        Video diputar dalam kualitas original
                       </div>
                     )}
                   </div>
