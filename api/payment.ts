@@ -302,23 +302,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // Proactively check Paywuz API if still PENDING to support instant upgrades
-      if (payment.status === 'PENDING' && payment.paywuz_reference) {
+      if (payment.status === 'PENDING') {
         const paywuzApiKey = process.env.PAYWUZ_API_KEY?.trim();
         if (paywuzApiKey) {
           try {
-            const checkRes = await fetch(`https://api.paywuz.id/v1/transactions/${encodeURIComponent(payment.paywuz_reference)}`, {
+            // Paywuz API expects orderId in transactions URL
+            const checkUrl = `https://api.paywuz.id/v1/transactions/${encodeURIComponent(payment.order_id)}`;
+            const checkRes = await fetch(checkUrl, {
               headers: {
                 Authorization: `Bearer ${paywuzApiKey}`,
               },
             });
+
+            let pwTx: any = null;
             if (checkRes.ok) {
               const pwData = await checkRes.json();
-              const pwTx = pwData.data || pwData;
+              pwTx = pwData.data || pwData;
+            } else if (payment.paywuz_reference) {
+              // Fallback to paywuz_reference if orderId returned non-ok
+              const fallbackRes = await fetch(`https://api.paywuz.id/v1/transactions/${encodeURIComponent(payment.paywuz_reference)}`, {
+                headers: {
+                  Authorization: `Bearer ${paywuzApiKey}`,
+                },
+              });
+              if (fallbackRes.ok) {
+                const pwData = await fallbackRes.json();
+                pwTx = pwData.data || pwData;
+              }
+            }
+
+            if (pwTx) {
               const pwStatus = (pwTx.status || '').toUpperCase();
-              if (pwStatus === 'PAID' || pwStatus === 'SETTLED' || pwStatus === 'SUCCESS') {
-                const tierInfo = TIER_CONFIG[payment.tier]?.[payment.raw_payload?.period || 'lifetime'] ||
-                  TIER_CONFIG[payment.tier]?.[Object.keys(TIER_CONFIG[payment.tier] || {})[0]];
-                
+              if (
+                pwStatus === 'PAID' ||
+                pwStatus === 'SETTLEMENT' ||
+                pwStatus === 'SETTLED' ||
+                pwStatus === 'SUCCESS' ||
+                pwStatus === 'COMPLETED'
+              ) {
+                const period = payment.raw_payload?.period || 'lifetime';
+                const tierInfo =
+                  TIER_CONFIG[payment.tier]?.[period] ||
+                  TIER_CONFIG[payment.tier]?.[Object.keys(TIER_CONFIG[payment.tier] || {})[0]] ||
+                  TIER_CONFIG.founder.lifetime;
+
                 if (tierInfo) {
                   await supabaseAdmin
                     .from('profiles')
@@ -340,10 +367,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                   .eq('order_id', orderId);
 
                 payment.status = 'PAID';
+                payment.updated_at = new Date().toISOString();
               }
             }
-          } catch {
-            // Non-blocking Paywuz check
+          } catch (pwErr: any) {
+            console.warn('Proactive Paywuz status check error:', pwErr.message);
           }
         }
       }

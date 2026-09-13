@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Check, Zap, Shield, Sparkles, ExternalLink, RefreshCw, ArrowLeft } from 'lucide-react';
 import { createPaymentOrder, checkPaymentStatus } from '../../lib/api';
 import type { UserQuota } from '../../types';
@@ -23,10 +23,37 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   const [selectedTier, setSelectedTier] = useState<'testing' | 'founder' | 'pro' | 'creator'>('testing');
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly' | 'lifetime'>('lifetime');
   const [loading, setLoading] = useState(false);
-  const [activeOrder, setActiveOrder] = useState<any | null>(null);
-  const [orderStatus, setOrderStatus] = useState<string | null>(null);
+  const [activeOrder, setActiveOrder] = useState<any | null>(() => {
+    try {
+      const saved = localStorage.getItem('cv_pending_order');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Date.now() - (parsed.timestamp || 0) < 60 * 60 * 1000) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return null;
+  });
+  const [orderStatus, setOrderStatus] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem('cv_pending_order');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Date.now() - (parsed.timestamp || 0) < 60 * 60 * 1000) {
+          return parsed.status || 'PENDING';
+        }
+      }
+    } catch {}
+    return null;
+  });
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const onUpgradeSuccessRef = useRef(onUpgradeSuccess);
+  useEffect(() => {
+    onUpgradeSuccessRef.current = onUpgradeSuccess;
+  }, [onUpgradeSuccess]);
 
   useEffect(() => {
     if (selectedTier === 'founder' || selectedTier === 'testing') {
@@ -36,23 +63,38 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     }
   }, [selectedTier]);
 
-  // Real-time automatic payment polling (every 3 seconds)
+  // Real-time automatic payment polling (every 2 seconds)
   useEffect(() => {
     if (!activeOrder?.orderId || orderStatus === 'PAID') return;
-    const interval = setInterval(async () => {
+
+    let isSubscribed = true;
+    const pollStatus = async () => {
       try {
         const statusRes = await checkPaymentStatus(activeOrder.orderId);
+        if (!isSubscribed) return;
         if (statusRes.status === 'PAID') {
           setOrderStatus('PAID');
-          onUpgradeSuccess?.();
-          clearInterval(interval);
+          try {
+            localStorage.removeItem('cv_pending_order');
+          } catch {}
+          onUpgradeSuccessRef.current?.();
+        } else if (statusRes.status) {
+          setOrderStatus(statusRes.status);
         }
       } catch {
-        // silent polling error
+        // silent polling
       }
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [activeOrder?.orderId, orderStatus, onUpgradeSuccess]);
+    };
+
+    const firstTimer = setTimeout(pollStatus, 800);
+    const interval = setInterval(pollStatus, 2000);
+
+    return () => {
+      isSubscribed = false;
+      clearTimeout(firstTimer);
+      clearInterval(interval);
+    };
+  }, [activeOrder?.orderId, orderStatus]);
 
   if (!isOpen) return null;
 
@@ -63,9 +105,12 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     try {
       const res = await createPaymentOrder(selectedTier, billingPeriod, 'QRIS');
       if (res && res.orderId) {
-        setActiveOrder(res);
+        const orderData = { ...res, timestamp: Date.now(), status: 'PENDING' };
+        setActiveOrder(orderData);
         setOrderStatus('PENDING');
-        // Do NOT open external tab! Stay embedded inside modal
+        try {
+          localStorage.setItem('cv_pending_order', JSON.stringify(orderData));
+        } catch {}
       }
     } catch (err: any) {
       setErrorMsg(err?.message || 'Gagal memulai transaksi pembayaran.');
@@ -83,7 +128,10 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
       const statusRes = await checkPaymentStatus(activeOrder.orderId);
       if (statusRes.status === 'PAID') {
         setOrderStatus('PAID');
-        onUpgradeSuccess?.();
+        try {
+          localStorage.removeItem('cv_pending_order');
+        } catch {}
+        onUpgradeSuccessRef.current?.();
       } else {
         setOrderStatus(statusRes.status);
       }
@@ -207,7 +255,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
               <div className="cv-qris-poll">
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block', flexShrink: 0 }} />
                 <span>
-                  Menunggu pembayaran via QRIS... Terdeteksi otomatis setiap 3 detik
+                  Menunggu pembayaran via QRIS... Terdeteksi otomatis secara real-time (setiap 2 detik)
                 </span>
               </div>
 
@@ -235,7 +283,11 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 )}
                 <button
                   type="button"
-                  onClick={() => setActiveOrder(null)}
+                  onClick={() => {
+                    try { localStorage.removeItem('cv_pending_order'); } catch {}
+                    setActiveOrder(null);
+                    setOrderStatus(null);
+                  }}
                   className="cv-btn cv-btn-ghost"
                   style={{ color: '#ef4444' }}
                 >
@@ -265,7 +317,12 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
               </p>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => {
+                  try { localStorage.removeItem('cv_pending_order'); } catch {}
+                  setActiveOrder(null);
+                  setOrderStatus(null);
+                  onClose();
+                }}
                 style={{
                   padding: '10px 24px',
                   backgroundColor: '#16a34a',

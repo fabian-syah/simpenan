@@ -14,7 +14,7 @@ import { AuthModal } from './components/Auth/AuthModal';
 import { UpgradeModal } from './components/Pricing/UpgradeModal';
 import { LegalModal } from './components/Legal/LegalModal';
 import type { FileRecord, TargetStorageOption } from './types';
-import { getDownloadUrl } from './lib/api';
+import { getDownloadUrl, checkPaymentStatus } from './lib/api';
 import { supabase } from './lib/supabase';
 import { useFiles } from './hooks/useFiles';
 import { useUpload } from './hooks/useUpload';
@@ -121,6 +121,30 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, [invalidateCache, fetchQuota]);
+
+  // Check any pending payment order from previous session or page refresh
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const saved = localStorage.getItem('cv_pending_order');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.orderId && Date.now() - (parsed.timestamp || 0) < 60 * 60 * 1000) {
+          checkPaymentStatus(parsed.orderId)
+            .then((res) => {
+              if (res.status === 'PAID') {
+                try {
+                  localStorage.removeItem('cv_pending_order');
+                } catch {}
+                fetchQuota();
+                setShowUpgradeModal(true);
+              }
+            })
+            .catch(() => {});
+        }
+      }
+    } catch {}
+  }, [user, fetchQuota]);
 
   const handleLogout = useCallback(async () => {
     await supabase.auth.signOut();
