@@ -114,7 +114,7 @@ export async function requestUploadUrl(
     body: JSON.stringify({ fileName, fileSize, mimeType, parentPath, provider }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to request upload URL');
+  if (!res.ok) throw new Error(data.details || data.error || 'Failed to request upload URL');
   return data;
 }
 
