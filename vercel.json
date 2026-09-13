@@ -7,7 +7,10 @@
     { "source": "/api/files/variants", "destination": "/api/files/list?variants_only=true" },
     { "source": "/api/files/get", "destination": "/api/files/list" },
     { "source": "/api/storage/quota", "destination": "/api/storage?action=quota" },
-    { "source": "/api/storage/providers", "destination": "/api/storage?action=providers" }
+    { "source": "/api/storage/providers", "destination": "/api/storage?action=providers" },
+    { "source": "/api/auth/login", "destination": "/api/storage?action=login" },
+    { "source": "/api/auth/register", "destination": "/api/storage?action=register" },
+    { "source": "/api/auth/session", "destination": "/api/storage?action=session" }
   ],
   "headers": [
     {

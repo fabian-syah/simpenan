@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase, isSupabaseConfigured, saveAnonKeyToStorage } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { X, Mail, Lock, LogIn, UserPlus, AlertCircle } from 'lucide-react';
 
 interface AuthModalProps {
@@ -18,12 +18,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [manualKey, setManualKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
-  const configured = isSupabaseConfigured();
 
   if (!isOpen) return null;
 
@@ -31,12 +28,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
-
-    if (!configured) {
-      setErrorMsg('Supabase Anon Key belum terpasang. Tempel kunci anon di kolom atas dan klik Simpan Key.');
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -141,63 +132,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} style={{ padding: 24 }}>
-          {!configured && (
-            <div
-              style={{
-                marginBottom: 20,
-                padding: '14px',
-                backgroundColor: 'rgba(234, 179, 8, 0.1)',
-                border: '1px solid rgba(234, 179, 8, 0.3)',
-                borderRadius: 10,
-              }}
-            >
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#facc15', marginBottom: 4 }}>
-                Supabase Anon Key Diperlukan
-              </div>
-              <p style={{ fontSize: 12, color: '#cbd5e1', margin: '0 0 10px', lineHeight: 1.4 }}>
-                Buka Supabase Dashboard, klik tombol <strong>API Keys</strong> di pojok kanan bawah, lalu salin kunci <strong>anon public</strong> dan tempel di bawah:
-              </p>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  type="text"
-                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  value={manualKey}
-                  onChange={(e) => setManualKey(e.target.value)}
-                  style={{
-                    flex: 1,
-                    padding: '8px 10px',
-                    borderRadius: 8,
-                    backgroundColor: '#020617',
-                    border: '1px solid #334155',
-                    color: '#fff',
-                    fontSize: 11,
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (manualKey.trim()) {
-                      saveAnonKeyToStorage(manualKey.trim());
-                    }
-                  }}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: 8,
-                    backgroundColor: '#0284c7',
-                    color: '#fff',
-                    border: 'none',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  Simpan Key
-                </button>
-              </div>
-            </div>
-          )}
-
           {errorMsg && (
             <div
               style={{

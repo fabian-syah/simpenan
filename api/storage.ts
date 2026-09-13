@@ -18,6 +18,100 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const action = (req.query.action as string) || (req.url?.includes('providers') ? 'providers' : 'quota');
 
+  // ACTION: LOGIN (Backend Supabase Auth - No frontend anon key required)
+  if (action === 'login') {
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+    try {
+      const { email, password } = req.body || {};
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email dan kata sandi wajib diisi' });
+      }
+
+      const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+        email: String(email).trim(),
+        password: String(password),
+      });
+
+      if (error) {
+        return res.status(400).json({ error: error.message || 'Login gagal' });
+      }
+
+      return res.status(200).json({
+        user: data.user,
+        session: data.session,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: 'Internal server error', details: err.message });
+    }
+  }
+
+  // ACTION: REGISTER (Auto confirmed by backend)
+  if (action === 'register') {
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+    try {
+      const { email, password } = req.body || {};
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email dan kata sandi wajib diisi' });
+      }
+
+      const cleanEmail = String(email).trim();
+      const cleanPassword = String(password);
+
+      const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email: cleanEmail,
+        password: cleanPassword,
+        email_confirm: true,
+      });
+
+      if (createError) {
+        return res.status(400).json({ error: createError.message || 'Pendaftaran gagal' });
+      }
+
+      // Generate session immediately
+      const { data: loginData, error: loginError } = await supabaseAdmin.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword,
+      });
+
+      if (loginError) {
+        return res.status(200).json({
+          user: createData.user,
+          message: 'Akun berhasil dibuat. Silakan masuk.',
+        });
+      }
+
+      return res.status(200).json({
+        user: loginData.user,
+        session: loginData.session,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: 'Internal server error', details: err.message });
+    }
+  }
+
+  // ACTION: SESSION / CURRENT USER
+  if (action === 'session' || action === 'me') {
+    try {
+      const authUser = await getAuthUser(req);
+      if (!authUser) {
+        return res.status(200).json({ user: null });
+      }
+
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+
+      return res.status(200).json({
+        user: authUser,
+        profile: profile || null,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: 'Internal server error', details: err.message });
+    }
+  }
+
   // ACTION: PROVIDERS
   if (action === 'providers') {
     // GET: List all storage providers

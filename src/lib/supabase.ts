@@ -5,6 +5,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const FALLBACK_URL = 'https://rqwuceybqsadneyjxmvy.supabase.co';
+const FALLBACK_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxd3VjZXlicXNhZG5leWp4bXZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4NTkxMjAsImV4cCI6MjEwNDQzNTEyMH0.n6FShmaWw46AAI0Opp4PTu2lyDnkP_1UbvMWxtTC4xY';
 
 const getInitialUrl = (): string => {
   return import.meta.env.VITE_SUPABASE_URL || FALLBACK_URL;
@@ -18,7 +19,7 @@ const getInitialAnonKey = (): string => {
     const saved = localStorage.getItem('cv_supabase_anon_key');
     if (saved && saved.trim()) return saved.trim();
   }
-  return 'placeholder_anon_key';
+  return FALLBACK_ANON_KEY;
 };
 
 export const supabaseUrl = getInitialUrl();
