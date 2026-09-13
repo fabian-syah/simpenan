@@ -640,6 +640,99 @@ body::after {
   border-color: var(--cv-accent);
 }
 
+/* ============================================================
+   Sidebar Theme Switcher (Modern Segmented Control)
+   ============================================================ */
+.cv-sidebar-theme-section {
+  margin-top: auto;
+  padding: 14px 14px 0 14px;
+  border-top: 1px solid var(--cv-border);
+}
+
+.cv-sidebar-theme-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+
+.cv-sidebar-theme-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cv-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cv-sidebar-theme-current {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--cv-accent);
+  background: var(--cv-accent-muted);
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--cv-border);
+  letter-spacing: 0.02em;
+}
+
+.cv-theme-segmented {
+  display: flex;
+  background: var(--cv-bg-tertiary);
+  border: 1px solid var(--cv-border);
+  border-radius: 12px;
+  padding: 3px;
+  gap: 3px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.cv-theme-segment-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 4px;
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--cv-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.cv-theme-segment-btn:hover:not(.active) {
+  color: var(--cv-text-primary);
+  background: var(--cv-bg-hover);
+}
+
+.cv-theme-segment-btn:active {
+  transform: scale(0.97);
+}
+
+.cv-theme-segment-btn.active {
+  background: var(--cv-bg-primary);
+  color: var(--cv-accent);
+  font-weight: 600;
+  border-color: var(--cv-border-hover);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.cv-theme-segment-btn .cv-theme-icon {
+  flex-shrink: 0;
+  transition: transform var(--cv-transition-fast);
+}
+
+.cv-theme-segment-btn:hover .cv-theme-icon {
+  transform: scale(1.1);
+}
+
 /* Mobile sidebar drawer */
 .cv-sidebar-overlay {
   display: none;

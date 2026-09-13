@@ -228,9 +228,9 @@ export function Sidebar({
               gap: 8,
               padding: '9px 12px',
               borderRadius: 10,
-              background: 'rgba(56, 189, 248, 0.08)',
-              border: '1px solid rgba(56, 189, 248, 0.22)',
-              color: '#38bdf8',
+              background: 'var(--cv-accent-muted)',
+              border: '1px solid var(--cv-border)',
+              color: 'var(--cv-accent)',
               fontSize: 12,
               fontWeight: 600,
               cursor: 'pointer',
@@ -271,39 +271,51 @@ export function Sidebar({
         )}
       </div>
 
-      {/* Mobile Theme Switcher in Drawer */}
+      {/* Theme Switcher in Drawer & Sidebar */}
       {onThemeChange && theme && (
-        <div className="cv-mobile-only" style={{ marginTop: 'auto', paddingTop: 16, borderTop: '1px solid var(--cv-border)' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--cv-text-tertiary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Theme
+        <div className="cv-sidebar-theme-section">
+          <div className="cv-sidebar-theme-header">
+            <span className="cv-sidebar-theme-title">Tema Tampilan</span>
+            <span className="cv-sidebar-theme-current">
+              {theme === 'light' ? 'Terang' : theme === 'dark' ? 'Gelap' : 'Sistem'}
+            </span>
           </div>
-          <div className="cv-toggle-group" style={{ width: '100%' }}>
+
+          <div className="cv-theme-segmented" role="radiogroup" aria-label="Pilihan tema">
             <button
-              className={`cv-toggle-btn ${theme === 'light' ? 'active' : ''}`}
+              type="button"
+              className={`cv-theme-segment-btn ${theme === 'light' ? 'active' : ''}`}
               onClick={() => onThemeChange('light')}
-              style={{ flex: 1 }}
-              title="Light theme"
-              aria-label="Light theme"
+              role="radio"
+              aria-checked={theme === 'light'}
+              title="Mode Terang"
             >
-              <Sun size={15} />
+              <Sun size={14} className="cv-theme-icon" />
+              <span>Terang</span>
             </button>
+
             <button
-              className={`cv-toggle-btn ${theme === 'dark' ? 'active' : ''}`}
+              type="button"
+              className={`cv-theme-segment-btn ${theme === 'dark' ? 'active' : ''}`}
               onClick={() => onThemeChange('dark')}
-              style={{ flex: 1 }}
-              title="Dark theme"
-              aria-label="Dark theme"
+              role="radio"
+              aria-checked={theme === 'dark'}
+              title="Mode Gelap"
             >
-              <Moon size={15} />
+              <Moon size={14} className="cv-theme-icon" />
+              <span>Gelap</span>
             </button>
+
             <button
-              className={`cv-toggle-btn ${theme === 'system' ? 'active' : ''}`}
+              type="button"
+              className={`cv-theme-segment-btn ${theme === 'system' ? 'active' : ''}`}
               onClick={() => onThemeChange('system')}
-              style={{ flex: 1 }}
-              title="System theme"
-              aria-label="System theme"
+              role="radio"
+              aria-checked={theme === 'system'}
+              title="Ikuti Tema Sistem Perangkat"
             >
-              <Monitor size={15} />
+              <Monitor size={14} className="cv-theme-icon" />
+              <span>Sistem</span>
             </button>
           </div>
         </div>
