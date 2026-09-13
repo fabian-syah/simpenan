@@ -67,16 +67,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const authUser = await getAuthUser(req);
 
+    if (!authUser) {
+      // Guests / unauthenticated users must see an empty drive
+      return res.status(200).json({ files: [] });
+    }
+
+    const isSuperAdmin = Boolean(
+      authUser.email && (
+        authUser.email.toLowerCase().includes('fabian') ||
+        authUser.email.toLowerCase().includes('bian') ||
+        ['fabiansyahalghiffarireal@gmail.com', 'khusussharebian@gmail.com'].includes(authUser.email.toLowerCase())
+      )
+    );
+
+    // If super admin, claim any unassigned legacy files so only super admin owns them
+    if (isSuperAdmin) {
+      try {
+        await supabaseAdmin
+          .from('files')
+          .update({ user_id: authUser.id })
+          .is('user_id', null);
+      } catch (claimErr) {
+        console.warn('Auto-claim legacy files warning:', claimErr);
+      }
+    }
+
     let query = supabaseAdmin
       .from('files')
       .select('*')
-      .eq('upload_status', 'complete');
-
-    if (authUser) {
-      query = query.eq('user_id', authUser.id);
-    } else {
-      query = query.is('user_id', null);
-    }
+      .eq('upload_status', 'complete')
+      .eq('user_id', authUser.id);
 
     if (showTrashed) {
       query = query.eq('is_trashed', true).order('updated_at', { ascending: false });

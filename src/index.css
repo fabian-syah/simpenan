@@ -1517,14 +1517,33 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
    ============================================================ */
 
 /* Utility Visibility Classes */
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .cv-desktop-only {
     display: none !important;
   }
 }
-@media (min-width: 769px) {
+@media (min-width: 901px) {
   .cv-mobile-only {
     display: none !important;
+  }
+}
+
+/* Intermediate Laptop / Tablet Breakpoints */
+@media (max-width: 1200px) {
+  .cv-header-right {
+    gap: 8px;
+  }
+  .cv-search-wrapper {
+    max-width: 260px;
+  }
+}
+
+@media (max-width: 1050px) {
+  .cv-storage-select-wrapper {
+    display: none !important;
+  }
+  .cv-search-wrapper {
+    max-width: 200px;
   }
 }
 
@@ -1685,12 +1704,30 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
   .cv-search-icon {
     left: 12px;
   }
+  .cv-header-left {
+    gap: 6px;
+    min-width: 0;
+    flex-shrink: 1;
+  }
   .cv-breadcrumbs {
-    max-width: 38vw;
+    max-width: 90px;
   }
   .cv-breadcrumb-link, .cv-breadcrumb-current {
-    font-size: 13px;
-    padding: 4px 6px;
+    font-size: 12px;
+    padding: 2px 4px;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cv-search-wrapper {
+    min-width: 80px;
+    flex: 1;
+  }
+  .cv-header-right {
+    gap: 6px;
+    flex-shrink: 0;
   }
 
   /* Compact View toggle on mobile */
@@ -1698,37 +1735,38 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
     display: none !important;
   }
   .cv-toggle-btn {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
   }
 
   .cv-file-grid {
-    grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
   }
   .cv-file-card {
-    padding: 11px;
-    gap: 10px;
+    padding: 10px 8px;
+    gap: 8px;
     border-radius: var(--cv-radius-md);
   }
   .cv-file-icon-box {
-    width: 38px;
-    height: 38px;
+    width: 36px;
+    height: 36px;
   }
   .cv-file-name {
-    font-size: 12.5px;
+    font-size: 12px;
   }
   .cv-file-meta {
-    font-size: 11px;
+    font-size: 10.5px;
   }
 
   .cv-file-list-header, .cv-file-row {
-    grid-template-columns: 1fr 75px;
-    padding: 0 10px;
-    height: 48px;
+    grid-template-columns: 1fr 70px;
+    padding: 0 8px;
+    height: 46px;
   }
-  .cv-file-list-header > *:nth-child(3), .cv-file-row > *:nth-child(3) {
-    display: none;
+  .cv-file-list-header > *:nth-child(3), .cv-file-row > *:nth-child(3),
+  .cv-file-list-header > *:nth-child(4), .cv-file-row > *:nth-child(4) {
+    display: none !important;
   }
 
   .cv-upload-panel {

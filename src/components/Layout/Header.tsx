@@ -347,7 +347,7 @@ export function Header({
               type="button"
               onClick={onOpenAuth}
               style={{
-                padding: '6px 14px',
+                padding: '6px 12px',
                 borderRadius: 8,
                 backgroundColor: '#0284c7',
                 border: 'none',
@@ -358,10 +358,13 @@ export function Header({
                 alignItems: 'center',
                 gap: 6,
                 cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
               <LogIn size={14} />
-              <span>Masuk / Daftar</span>
+              <span className="cv-desktop-only">Masuk / Daftar</span>
+              <span className="cv-mobile-only">Masuk</span>
             </button>
           )
         )}

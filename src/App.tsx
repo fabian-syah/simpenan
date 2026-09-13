@@ -150,15 +150,27 @@ export default function App() {
     await fetchQuota();
   }, [invalidateCache, fetchQuota]);
 
+  const isSuperAdmin = Boolean(
+    user?.email && (
+      user.email.toLowerCase().includes('fabian') ||
+      user.email.toLowerCase().includes('bian') ||
+      ['fabiansyahalghiffarireal@gmail.com', 'khusussharebian@gmail.com'].includes(user.email.toLowerCase())
+    )
+  );
+
   const handleSectionChange = useCallback((section: string) => {
     setActiveSection(section);
     if (section === 'drive') navigateTo('/');
   }, [navigateTo]);
 
   const handleNewFolder = useCallback(() => {
+    if (!user) {
+      handleOpenAuth('login');
+      return;
+    }
     setNewFolderName('');
     setShowNewFolderModal(true);
-  }, []);
+  }, [user, handleOpenAuth]);
 
   const handleCreateFolder = useCallback(async () => {
     if (!newFolderName.trim()) return;
@@ -181,19 +193,31 @@ export default function App() {
   }, [files]);
 
   const handleUploadClick = useCallback(() => {
+    if (!user) {
+      handleOpenAuth('login');
+      return;
+    }
     fileInputRef.current?.click();
-  }, []);
+  }, [user, handleOpenAuth]);
 
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user) {
+      handleOpenAuth('login');
+      return;
+    }
     if (e.target.files && e.target.files.length > 0) {
       uploadFiles(Array.from(e.target.files));
       e.target.value = '';
     }
-  }, [uploadFiles]);
+  }, [user, handleOpenAuth, uploadFiles]);
 
   const handleFilesDropped = useCallback((fileList: FileList) => {
+    if (!user) {
+      handleOpenAuth('login');
+      return;
+    }
     uploadFiles(fileList);
-  }, [uploadFiles]);
+  }, [user, handleOpenAuth, uploadFiles]);
 
   return (
     <DropZone onFilesDropped={handleFilesDropped}>
@@ -215,14 +239,14 @@ export default function App() {
           <QuotaBar
             quota={quota}
             loading={quotaLoading}
-            onOpenManageStorage={() => setShowManageStorage(true)}
+            onOpenManageStorage={isSuperAdmin ? () => setShowManageStorage(true) : undefined}
             onOpenUpgrade={() => handleOpenUpgrade()}
           />
         }
         targetProvider={targetProvider}
         onTargetProviderChange={handleTargetProviderChange}
         providers={quota?.providers}
-        onOpenManageStorage={() => setShowManageStorage(true)}
+        onOpenManageStorage={isSuperAdmin ? () => setShowManageStorage(true) : undefined}
         onMoveFiles={moveFiles}
         onRefresh={handleRefresh}
         onOpenFeedback={() => handleOpenFeedback()}
@@ -237,6 +261,8 @@ export default function App() {
           loading={loading}
           viewMode={viewMode}
           searchQuery={searchQuery}
+          user={user}
+          onOpenAuth={() => handleOpenAuth('login')}
           onFolderOpen={navigateTo}
           onDelete={async (id) => {
             await deleteFile(id);

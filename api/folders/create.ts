@@ -15,22 +15,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!name) return res.status(400).json({ error: 'Folder name is required' });
 
     const authUser = await getAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ error: 'Silakan masuk atau daftar terlebih dahulu untuk membuat folder.' });
+    }
+
     const folderPath = parentPath === '/' ? `/${name}` : `${parentPath}/${name}`;
 
     // Check if folder already exists for this user
-    let existingQuery = supabaseAdmin
+    const { data: existing } = await supabaseAdmin
       .from('files')
       .select('id')
+      .eq('user_id', authUser.id)
       .eq('path', folderPath)
-      .eq('is_folder', true);
-
-    if (authUser) {
-      existingQuery = existingQuery.eq('user_id', authUser.id);
-    } else {
-      existingQuery = existingQuery.is('user_id', null);
-    }
-
-    const { data: existing } = await existingQuery.single();
+      .eq('is_folder', true)
+      .single();
 
     if (existing) {
       return res.status(409).json({ error: 'Folder already exists' });

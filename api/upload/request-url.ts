@@ -35,16 +35,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Authenticate user & verify tier quota
     const authUser = await getAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({
+        error: 'Silakan masuk atau daftar akun terlebih dahulu untuk mengunggah berkas.',
+        code: 'AUTH_REQUIRED',
+      });
+    }
+
     let userTier = 'starter';
     let maxFileSizeBytes = 262144000; // 250 MB
     let storageLimitBytes = 2147483648; // 2 GB
 
-    if (authUser) {
-      const { data: profile } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .eq('id', authUser.id)
-        .single();
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .single();
 
       if (profile) {
         userTier = profile.tier || 'starter';

@@ -8,7 +8,7 @@ import {
   FileType, Archive, Code, File, Star, MoreVertical, Download,
   Edit2, Link as LinkIcon, FolderOpen, Trash2, CloudUpload,
   Check, Play, FolderInput, X, ArrowUp, ArrowDown, Pin, Tag,
-  Palette, Plus
+  Palette, Plus, LogIn
 } from 'lucide-react';
 
 interface FileListProps {
@@ -26,6 +26,8 @@ interface FileListProps {
   onMoveFiles?: (fileIds: string[], targetPath: string) => Promise<void>;
   onBatchDelete?: (fileIds: string[]) => Promise<void>;
   onFolderHover?: (path: string) => void;
+  user?: any | null;
+  onOpenAuth?: () => void;
 }
 
 const ICON_MAP: Record<string, any> = {
@@ -110,6 +112,8 @@ export function FileList({
   onMoveFiles,
   onBatchDelete,
   onFolderHover,
+  user,
+  onOpenAuth,
 }: FileListProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileRecord } | null>(null);
   const contextRef = useRef<HTMLDivElement>(null);
@@ -592,7 +596,12 @@ export function FileList({
       )}
 
       {sortedAndFilteredFiles.length === 0 ? (
-        <EmptyState searchQuery={searchQuery} categoryFilter={categoryFilter} />
+        <EmptyState
+          searchQuery={searchQuery}
+          categoryFilter={categoryFilter}
+          user={user}
+          onOpenAuth={onOpenAuth}
+        />
       ) : viewMode === 'grid' ? (
         <div className="cv-file-grid cv-stagger">
           {sortedAndFilteredFiles.map((file, idx) => {
@@ -1346,7 +1355,67 @@ function FileRow({
 // ============================================================
 // Empty State (Atmospheric Cloud)
 // ============================================================
-function EmptyState({ searchQuery, categoryFilter }: { searchQuery: string; categoryFilter?: string }) {
+function EmptyState({
+  searchQuery,
+  categoryFilter,
+  user,
+  onOpenAuth,
+}: {
+  searchQuery: string;
+  categoryFilter?: string;
+  user?: any | null;
+  onOpenAuth?: () => void;
+}) {
+  if (!user && !searchQuery) {
+    return (
+      <div className="cv-empty-state cv-scroll-reveal is-revealed" style={{ padding: '40px 20px', textAlign: 'center' }}>
+        <div
+          className="cv-empty-icon-wrap"
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: 16,
+            background: 'rgba(56, 189, 248, 0.1)',
+            color: '#38bdf8',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 16px',
+          }}
+        >
+          <CloudUpload size={32} />
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: 'var(--cv-text-primary)' }}>
+          Penyimpanan Cloud Pribadi
+        </div>
+        <div style={{ fontSize: 13.5, color: 'var(--cv-text-secondary)', maxWidth: 420, margin: '0 auto 20px', lineHeight: 1.6 }}>
+          Masuk atau buat akun gratis untuk mulai menyimpan berkas, video, dan dokumen Anda secara aman di cloud terenkripsi.
+        </div>
+        {onOpenAuth && (
+          <button
+            type="button"
+            onClick={onOpenAuth}
+            className="cv-btn cv-btn-primary"
+            style={{
+              padding: '10px 24px',
+              fontSize: 14,
+              fontWeight: 600,
+              borderRadius: 10,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              boxShadow: '0 4px 14px rgba(2, 132, 199, 0.4)',
+              cursor: 'pointer',
+            }}
+          >
+            <LogIn size={16} />
+            <span>Masuk / Daftar Sekarang</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="cv-empty-state cv-scroll-reveal is-revealed">
       <div className="cv-empty-icon-wrap">
