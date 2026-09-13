@@ -1,6 +1,6 @@
 import type { FileRecord } from '../../types';
 import { getDownloadUrl, fetchVariants } from '../../lib/api';
-import { X, ExternalLink, ZoomIn, ZoomOut, RotateCw, Maximize, Download, Copy, Check, FileText } from 'lucide-react';
+import { X, ExternalLink, ZoomIn, ZoomOut, RotateCw, Maximize, Download, Copy, Check, FileText, Link as LinkIcon, Edit2, Star, Trash2 } from 'lucide-react';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { getFileCategory } from '../../types';
 import { VideoPlayer } from './VideoPlayer';
@@ -9,9 +9,13 @@ interface PreviewModalProps {
   file: FileRecord;
   onClose: () => void;
   onOpenFeedback?: (ctx?: { file?: FileRecord; error?: string; category?: 'quota' | 'media' | 'upload' | 'suggestion' | 'general' }) => void;
+  onShare?: (fileId: string) => void;
+  onToggleStar?: (fileId: string) => void;
+  onDelete?: (fileId: string) => void;
+  onRename?: (fileId: string, currentName: string) => void;
 }
 
-export function PreviewModal({ file, onClose, onOpenFeedback }: PreviewModalProps) {
+export function PreviewModal({ file, onClose, onOpenFeedback, onShare, onToggleStar, onDelete, onRename }: PreviewModalProps) {
   const [loading, setLoading] = useState(true);
   const category = getFileCategory(file.mime_type, file.is_folder);
   const isVideo = category === 'video';
@@ -101,11 +105,32 @@ export function PreviewModal({ file, onClose, onOpenFeedback }: PreviewModalProp
   const [isMinimized, setIsMinimized] = useState(false);
   const [isVideoFullscreen, setIsVideoFullscreen] = useState<boolean>(false);
 
+  // Context menu state (Custom Simpenan right-click menu, suppresses browser native context menu)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const menuWidth = 220;
+    const menuHeight = 280;
+    const clampedX = Math.min(e.clientX, window.innerWidth - menuWidth - 10);
+    const clampedY = Math.min(e.clientY, window.innerHeight - menuHeight - 10);
+    setContextMenu({ x: Math.max(10, clampedX), y: Math.max(10, clampedY) });
+  }, []);
+
+  useEffect(() => {
+    const handleDismiss = () => setContextMenu(null);
+    window.addEventListener('click', handleDismiss);
+    return () => window.removeEventListener('click', handleDismiss);
+  }, []);
+
   // Close on Escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (isMinimized) {
+        if (contextMenu) {
+          setContextMenu(null);
+        } else if (isMinimized) {
           setIsMinimized(false);
         } else {
           onClose();
@@ -114,12 +139,19 @@ export function PreviewModal({ file, onClose, onOpenFeedback }: PreviewModalProp
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [onClose, isMinimized]);
+  }, [onClose, isMinimized, contextMenu]);
 
   return (
     <div
       className={isMinimized ? "cv-modal-overlay cv-minimized" : "cv-modal-overlay"}
-      onClick={isMinimized ? undefined : onClose}
+      onClick={isMinimized ? undefined : () => {
+        if (contextMenu) {
+          setContextMenu(null);
+          return;
+        }
+        onClose();
+      }}
+      onContextMenu={handleContextMenu}
       style={{
         zIndex: 99999,
         background: isMinimized ? 'transparent' : '#000000',
@@ -131,7 +163,11 @@ export function PreviewModal({ file, onClose, onOpenFeedback }: PreviewModalProp
     >
       <div
         className="cv-modal-content"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (contextMenu) setContextMenu(null);
+        }}
+        onContextMenu={handleContextMenu}
         style={{
           background: 'transparent',
           boxShadow: 'none',
@@ -349,6 +385,7 @@ export function PreviewModal({ file, onClose, onOpenFeedback }: PreviewModalProp
               <img
                 src={fileUrl}
                 alt={file.name}
+                onContextMenu={handleContextMenu}
                 style={{
                   maxWidth: '100%',
                   maxHeight: '100%',
@@ -401,6 +438,123 @@ export function PreviewModal({ file, onClose, onOpenFeedback }: PreviewModalProp
             </div>
           )}
         </div>
+
+        {/* Simpenan Custom Context Menu (Replaces default browser right-click menu) */}
+        {contextMenu && (
+          <div
+            className="cv-context-menu"
+            style={{
+              position: 'fixed',
+              left: contextMenu.x,
+              top: contextMenu.y,
+              zIndex: 100010,
+              minWidth: 200,
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <a
+              className="cv-context-item"
+              href={getDownloadUrl(file.id, true)}
+              download={file.name}
+              style={{ textDecoration: 'none' }}
+              onClick={() => setContextMenu(null)}
+            >
+              <Download size={15} /> Unduh
+            </a>
+
+            {onShare && (
+              <button
+                type="button"
+                className="cv-context-item"
+                onClick={() => {
+                  onShare(file.id);
+                  setContextMenu(null);
+                }}
+              >
+                <LinkIcon size={15} /> Bagikan Link
+              </button>
+            )}
+
+            <a
+              className="cv-context-item"
+              href={isVideo ? activeUrl : fileUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{ textDecoration: 'none' }}
+              onClick={() => setContextMenu(null)}
+            >
+              <ExternalLink size={15} /> Buka di Tab Baru
+            </a>
+
+            <button
+              type="button"
+              className="cv-context-item"
+              onClick={() => {
+                const fullUrl = `${window.location.origin}/share/${file.id}`;
+                navigator.clipboard.writeText(fullUrl);
+                setContextMenu(null);
+              }}
+            >
+              <Copy size={15} /> Salin Link Berkas
+            </button>
+
+            {onRename && (
+              <button
+                type="button"
+                className="cv-context-item"
+                onClick={() => {
+                  onRename(file.id, file.name);
+                  setContextMenu(null);
+                  onClose();
+                }}
+              >
+                <Edit2 size={15} /> Ganti Nama
+              </button>
+            )}
+
+            {onToggleStar && (
+              <button
+                type="button"
+                className="cv-context-item"
+                onClick={() => {
+                  onToggleStar(file.id);
+                  setContextMenu(null);
+                }}
+              >
+                <Star size={15} />
+                {file.is_starred ? 'Hapus Bintang' : 'Beri Bintang'}
+              </button>
+            )}
+
+            <div className="cv-context-divider" />
+
+            {onDelete && (
+              <button
+                type="button"
+                className="cv-context-item danger"
+                onClick={() => {
+                  onDelete(file.id);
+                  setContextMenu(null);
+                  onClose();
+                }}
+              >
+                <Trash2 size={15} /> Hapus
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="cv-context-item"
+              onClick={() => {
+                setContextMenu(null);
+                onClose();
+              }}
+            >
+              <X size={15} /> Tutup Pratinjau
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

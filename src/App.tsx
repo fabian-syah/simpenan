@@ -146,6 +146,18 @@ export default function App() {
     } catch {}
   }, [user, fetchQuota]);
 
+  // Suppress browser default context menu on media elements across the application
+  useEffect(() => {
+    const handleGlobalContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'IMG' || target.tagName === 'VIDEO' || target.closest('.cv-preview-content-area') || target.closest('.cv-modal-content'))) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('contextmenu', handleGlobalContextMenu);
+    return () => document.removeEventListener('contextmenu', handleGlobalContextMenu);
+  }, []);
+
   const handleLogout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -392,6 +404,10 @@ export default function App() {
           file={previewFile} 
           onClose={() => setPreviewFile(null)} 
           onOpenFeedback={handleOpenFeedback}
+          onShare={() => setShareModalFile(previewFile)}
+          onToggleStar={toggleStar}
+          onDelete={deleteFile}
+          onRename={(fileId, currentName) => setRenameTarget({ id: fileId, name: currentName })}
         />
       )}
 
