@@ -97,53 +97,24 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(3, 7, 18, 0.85)',
-        backdropFilter: 'blur(8px)',
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-      }}
+      className="cv-upgrade-overlay"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div
-        style={{
-          backgroundColor: '#0f172a',
-          border: '1px solid #1e293b',
-          borderRadius: 16,
-          width: '100%',
-          maxWidth: 680,
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
-        }}
-      >
+      <div className="cv-upgrade-modal">
         {/* Header */}
-        <div
-          style={{
-            padding: '20px 24px',
-            borderBottom: '1px solid #1e293b',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
+        <div className="cv-upgrade-header">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <Sparkles size={18} color="#38bdf8" />
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f8fafc' }}>
                 Upgrade Kapasitas Simpenan Cloud
               </h3>
               {userQuota && (
                 <span
                   style={{
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: 700,
                     padding: '2px 8px',
                     borderRadius: 99,
@@ -156,7 +127,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 </span>
               )}
             </div>
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94a3b8' }}>
+            <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#94a3b8' }}>
               Pilih paket sesuai kebutuhan penyimpanan dan batas ukuran file Anda
             </p>
           </div>
@@ -174,17 +145,17 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
           </button>
         </div>
 
-        <div style={{ padding: 24 }}>
+        <div className="cv-upgrade-body">
           {initialReason && (
             <div
               style={{
-                marginBottom: 20,
-                padding: '12px 16px',
+                marginBottom: 16,
+                padding: '10px 14px',
                 backgroundColor: 'rgba(234, 179, 8, 0.12)',
                 border: '1px solid rgba(234, 179, 8, 0.3)',
                 borderRadius: 8,
                 color: '#facc15',
-                fontSize: 13,
+                fontSize: 12.5,
                 lineHeight: 1.4,
               }}
             >
@@ -201,7 +172,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 border: '1px solid rgba(239, 68, 68, 0.3)',
                 borderRadius: 8,
                 color: '#f87171',
-                fontSize: 13,
+                fontSize: 12.5,
               }}
             >
               {errorMsg}
@@ -212,111 +183,73 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
           {activeOrder && orderStatus !== 'PAID' ? (
             <div>
               {/* Tabs: QRIS Langsung vs Portal Lengkap */}
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              <div className="cv-upgrade-tabs">
                 <button
                   type="button"
                   onClick={() => setPaymentTab('qris')}
+                  className="cv-upgrade-tab-btn"
                   style={{
-                    flex: 1,
-                    padding: '9px 14px',
-                    borderRadius: 8,
                     background: paymentTab === 'qris' ? '#0284c7' : '#1e293b',
                     color: '#ffffff',
-                    border: 'none',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    transition: 'all 0.15s ease',
                   }}
                 >
-                  <QrCode size={15} />
-                  <span>QRIS Instan (Simpenan Dark)</span>
+                  <QrCode size={15} style={{ flexShrink: 0 }} />
+                  <span className="cv-tab-text-full">QRIS Instan (Simpenan Dark)</span>
+                  <span className="cv-tab-text-short">QRIS Instan</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setPaymentTab('portal')}
+                  className="cv-upgrade-tab-btn"
                   style={{
-                    flex: 1,
-                    padding: '9px 14px',
-                    borderRadius: 8,
                     background: paymentTab === 'portal' ? '#0284c7' : '#1e293b',
                     color: '#ffffff',
-                    border: 'none',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    transition: 'all 0.15s ease',
                   }}
                 >
-                  <CreditCard size={15} />
-                  <span>Portal Paywuz (Virtual Account & Gerai)</span>
+                  <CreditCard size={15} style={{ flexShrink: 0 }} />
+                  <span className="cv-tab-text-full">Portal Paywuz (VA & Gerai)</span>
+                  <span className="cv-tab-text-short">Portal VA & Gerai</span>
                 </button>
               </div>
 
               {paymentTab === 'qris' ? (
-                <div
-                  style={{
-                    backgroundColor: '#070b14',
-                    border: '1px solid #1e293b',
-                    borderRadius: 14,
-                    padding: '24px 20px',
-                    textAlign: 'center',
-                  }}
-                >
-                  <div style={{ marginBottom: 12 }}>
-                    <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 4 }}>Total Pembayaran</div>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: '#38bdf8' }}>
+                <div className="cv-qris-card">
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Total Pembayaran</div>
+                    <div className="cv-qris-amount">
                       Rp {activeOrder.amount?.toLocaleString('id-ID')}
                     </div>
-                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                    <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 2, wordBreak: 'break-all' }}>
                       Order ID: <code>{activeOrder.orderId}</code>
                     </div>
                   </div>
 
                   {/* QR Code Container */}
-                  <div
-                    style={{
-                      background: '#ffffff',
-                      padding: 16,
-                      borderRadius: 16,
-                      display: 'inline-block',
-                      margin: '6px auto 14px',
-                      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
-                    }}
-                  >
+                  <div className="cv-qris-img-box">
                     <img
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=4&data=${encodeURIComponent(activeOrder.qrString || activeOrder.paymentUrl)}`}
                       alt="QRIS Pembayaran"
-                      style={{ width: 220, height: 220, display: 'block' }}
+                      className="cv-qris-img"
                     />
-                    <div style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: '#0f172a', letterSpacing: '0.05em' }}>
+                    <div className="cv-qris-img-label">
                       QRIS RESMI (GOPAY / OVO / DANA / BCA / LIVIN)
                     </div>
                   </div>
 
                   {/* Live Auto-Polling Status Indicator */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-                    <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                  <div className="cv-qris-poll">
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block', flexShrink: 0 }} />
+                    <span>
                       Menunggu pembayaran via QRIS... Terdeteksi otomatis setiap 3 detik
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <div className="cv-qris-actions">
                     <button
                       type="button"
                       onClick={handleCheckPayment}
                       disabled={checkingStatus}
                       className="cv-btn cv-btn-secondary"
-                      style={{ padding: '8px 16px', fontSize: 12.5 }}
                     >
                       <RefreshCw size={13} className={checkingStatus ? 'animate-spin' : ''} />
                       <span>{checkingStatus ? 'Memeriksa...' : 'Cek Status Sekarang'}</span>
@@ -327,7 +260,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                         target="_blank"
                         rel="noreferrer"
                         className="cv-btn cv-btn-ghost"
-                        style={{ padding: '8px 16px', fontSize: 12.5, color: '#94a3b8' }}
+                        style={{ color: '#94a3b8' }}
                       >
                         <ExternalLink size={13} />
                         <span>Buka di Tab Baru</span>
@@ -337,7 +270,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                       type="button"
                       onClick={() => setActiveOrder(null)}
                       className="cv-btn cv-btn-ghost"
-                      style={{ padding: '8px 16px', fontSize: 12.5, color: '#ef4444' }}
+                      style={{ color: '#ef4444' }}
                     >
                       <ArrowLeft size={13} />
                       <span>Ganti Paket</span>
@@ -345,17 +278,13 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                   </div>
                 </div>
               ) : (
-                <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #334155', background: '#ffffff' }}>
+                <div className="cv-portal-box">
                   <iframe
                     src={activeOrder.paymentUrl}
                     title="Paywuz Payment Portal"
-                    style={{
-                      width: '100%',
-                      height: '540px',
-                      border: 'none',
-                    }}
+                    className="cv-portal-iframe"
                   />
-                  <div style={{ padding: '10px 16px', background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ padding: '8px 14px', background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                     <button
                       type="button"
                       onClick={() => setActiveOrder(null)}
@@ -431,14 +360,16 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
+                  gap: 10,
+                  flexWrap: 'wrap',
                 }}
               >
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#f8fafc' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#f8fafc' }}>
                       Paket Testing Sandbox (Uji Coba QRIS)
                     </h4>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: '#10b981', color: '#0f172a' }}>
+                    <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: '#10b981', color: '#0f172a' }}>
                       TESTING
                     </span>
                   </div>
@@ -446,8 +377,8 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                     Kuota 5 GB Lifetime • Uji coba transaksi real-time Paywuz hanya Rp 1.000
                   </p>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#10b981' }}>Rp 1.000</div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: '#10b981' }}>Rp 1.000</div>
                   <div style={{ fontSize: 10, color: '#64748b' }}>Bayar 1x</div>
                 </div>
               </div>
@@ -456,8 +387,8 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
               <div
                 onClick={() => setSelectedTier('founder')}
                 style={{
-                  marginBottom: 20,
-                  padding: 18,
+                  marginBottom: 16,
+                  padding: '16px 14px',
                   borderRadius: 12,
                   backgroundColor: selectedTier === 'founder' ? 'rgba(14, 165, 233, 0.12)' : '#070b14',
                   border: `2px solid ${selectedTier === 'founder' ? '#0ea5e9' : '#334155'}`,
@@ -470,36 +401,36 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                   style={{
                     position: 'absolute',
                     top: -11,
-                    right: 16,
+                    right: 14,
                     backgroundColor: '#0284c7',
                     color: '#ffffff',
-                    fontSize: 10,
+                    fontSize: 9.5,
                     fontWeight: 700,
-                    padding: '2px 10px',
+                    padding: '2px 8px',
                     borderRadius: 12,
-                    letterSpacing: '0.05em',
+                    letterSpacing: '0.04em',
                   }}
                 >
                   PROMO TERBATAS • SISA 12 SLOT
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
                   <div>
-                    <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span>Founder's Edition (Lifetime)</span>
                       <Zap size={14} color="#f59e0b" fill="#f59e0b" />
                     </h4>
-                    <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94a3b8' }}>
+                    <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#94a3b8' }}>
                       Bayar sekali untuk seumur hidup tanpa biaya langganan bulanan.
                     </p>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: '#38bdf8' }}>Rp 99.000</div>
-                    <div style={{ fontSize: 11, color: '#64748b' }}>Bayar 1x (Seumur Hidup)</div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: 19, fontWeight: 800, color: '#38bdf8' }}>Rp 99.000</div>
+                    <div style={{ fontSize: 10.5, color: '#64748b' }}>Bayar 1x (Seumur Hidup)</div>
                   </div>
                 </div>
 
-                <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 12, color: '#cbd5e1' }}>
+                <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 11.5, color: '#cbd5e1' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Check size={14} color="#38bdf8" />
                     <span>Kuota <strong>50 GB</strong></span>
@@ -516,7 +447,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
               </div>
 
               {/* Other Tier Plans */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+              <div className="cv-upgrade-grid">
                 {/* Pro Tier */}
                 <div
                   onClick={() => setSelectedTier('pro')}

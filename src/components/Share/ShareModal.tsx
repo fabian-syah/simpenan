@@ -38,12 +38,15 @@ export function ShareModal({ file, onClose }: ShareModalProps) {
         className="cv-modal-content cv-bento-card"
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: '90%',
+          width: '94%',
           maxWidth: '480px',
-          padding: '24px',
+          maxHeight: 'min(92vh, 92dvh)',
+          overflowY: 'auto',
+          boxSizing: 'border-box',
+          padding: '20px',
           background: 'var(--cv-bg-primary)',
           border: '1px solid var(--cv-border)',
-          borderRadius: '20px',
+          borderRadius: '18px',
           boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
         }}
       >

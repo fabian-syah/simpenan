@@ -111,38 +111,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 16,
+        padding: 12,
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div
-        style={{
-          backgroundColor: '#0f172a',
-          border: '1px solid #1e293b',
-          borderRadius: 16,
-          width: '100%',
-          maxWidth: 420,
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
-          overflow: 'hidden',
-        }}
-      >
+      <div className="cv-auth-modal">
         {/* Header */}
         <div
           style={{
-            padding: '20px 24px',
+            padding: '16px 20px',
             borderBottom: '1px solid #1e293b',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexShrink: 0,
           }}
         >
           <div>
-            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f8fafc' }}>
               {mode === 'login' ? 'Masuk ke Simpenan' : 'Daftar Akun Baru'}
             </h3>
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94a3b8' }}>
+            <p style={{ margin: '3px 0 0', fontSize: 11.5, color: '#94a3b8' }}>
               {mode === 'login'
                 ? 'Akses penyimpanan cloud pribadi Anda'
                 : 'Dapatkan kuota cloud 2 GB gratis selamanya'}
@@ -163,7 +154,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} style={{ padding: 24 }}>
+        <form onSubmit={handleSubmit} style={{ padding: '18px 20px', overflowY: 'auto', flex: 1 }}>
           {errorMsg && (
             <div
               style={{

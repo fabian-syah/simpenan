@@ -132,6 +132,9 @@ export function FeedbackModal({
         style={{
           width: '92%',
           maxWidth: 520,
+          maxHeight: 'min(92vh, 92dvh)',
+          display: 'flex',
+          flexDirection: 'column',
           background: 'var(--cv-surface, #0f172a)',
           border: '1px solid var(--cv-border, rgba(255, 255, 255, 0.12))',
           boxShadow: '0 25px 60px rgba(0, 0, 0, 0.65)',
@@ -235,7 +238,7 @@ export function FeedbackModal({
             </p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} style={{ padding: '20px 22px' }}>
+          <form onSubmit={handleSubmit} style={{ padding: '18px 20px', overflowY: 'auto', flex: 1 }}>
             {/* Category Select Pills */}
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--cv-text-secondary, #cbd5e1)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>

@@ -1359,8 +1359,11 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
   border-radius: var(--cv-radius-xl);
   border: 1px solid var(--cv-border);
   padding: 24px;
-  min-width: 420px;
-  max-width: 90vw;
+  width: 100%;
+  max-width: min(540px, 94vw);
+  max-height: min(90vh, 90dvh);
+  overflow-y: auto;
+  box-sizing: border-box;
   box-shadow: var(--cv-shadow-lg), var(--cv-card-glow);
   animation: cvScaleIn 0.24s var(--cv-ease);
 }
@@ -2471,6 +2474,266 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
     padding: 46px 6px 10px;
   }
 }
+
+/* ============================================================
+   Upgrade Modal & QRIS Responsive System
+   ============================================================ */
+.cv-upgrade-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(3, 7, 18, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.cv-upgrade-modal {
+  background-color: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 640px;
+  max-height: min(92vh, 92dvh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  box-sizing: border-box;
+}
+
+.cv-upgrade-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.cv-upgrade-body {
+  padding: 20px 22px;
+  overflow-y: auto;
+  flex: 1;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+}
+
+/* Tabs: QRIS vs Portal */
+.cv-upgrade-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.cv-upgrade-tab-btn {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.cv-tab-text-short {
+  display: none;
+}
+.cv-tab-text-full {
+  display: inline;
+}
+
+/* QRIS Embedded Card */
+.cv-qris-card {
+  background-color: #070b14;
+  border: 1px solid #1e293b;
+  border-radius: 14px;
+  padding: 20px 18px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.cv-qris-amount {
+  font-size: 26px;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: -0.01em;
+}
+
+.cv-qris-img-box {
+  background: #ffffff;
+  padding: 14px;
+  border-radius: 16px;
+  display: inline-block;
+  margin: 6px auto 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  max-width: min(220px, 75vw);
+  box-sizing: border-box;
+}
+
+.cv-qris-img {
+  width: 100%;
+  max-width: 180px;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  display: block;
+  margin: 0 auto;
+}
+
+.cv-qris-img-label {
+  margin-top: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.cv-qris-poll {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: #94a3b8;
+  padding: 0 8px;
+  line-height: 1.35;
+}
+
+.cv-qris-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.cv-qris-actions .cv-btn {
+  padding: 8px 14px;
+  font-size: 12px;
+  height: auto;
+  min-height: 36px;
+}
+
+/* Paywuz Portal Iframe */
+.cv-portal-box {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #334155;
+  background: #ffffff;
+}
+
+.cv-portal-iframe {
+  width: 100%;
+  height: clamp(340px, 58vh, 500px);
+  border: none;
+  display: block;
+}
+
+/* Pricing Cards Responsive Grid */
+.cv-upgrade-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+/* Mobile Breakpoints (< 600px) */
+@media (max-width: 600px) {
+  .cv-upgrade-overlay {
+    padding: 8px;
+  }
+  .cv-upgrade-modal {
+    max-height: min(94vh, 94dvh);
+    border-radius: 14px;
+  }
+  .cv-upgrade-header {
+    padding: 12px 14px;
+  }
+  .cv-upgrade-body {
+    padding: 14px 12px;
+  }
+  .cv-upgrade-tab-btn {
+    padding: 8px 10px;
+    font-size: 11.5px;
+  }
+  .cv-tab-text-full {
+    display: none;
+  }
+  .cv-tab-text-short {
+    display: inline;
+  }
+  .cv-qris-card {
+    padding: 14px 10px;
+  }
+  .cv-qris-amount {
+    font-size: 22px;
+  }
+  .cv-qris-img-box {
+    padding: 10px;
+    max-width: min(200px, 70vw);
+  }
+  .cv-qris-img {
+    max-width: 160px;
+  }
+  .cv-qris-img-label {
+    font-size: 9px;
+  }
+  .cv-qris-poll {
+    font-size: 11px;
+    margin-bottom: 12px;
+  }
+  .cv-qris-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .cv-qris-actions .cv-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .cv-upgrade-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .cv-portal-iframe {
+    height: clamp(300px, 50vh, 420px);
+  }
+}
+
+/* Auth Modal Responsive System */
+.cv-auth-modal {
+  background-color: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+  max-height: min(92vh, 92dvh);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .cv-auth-modal {
+    max-height: min(95vh, 95dvh);
+    border-radius: 14px;
+  }
+}
+
 
 
 
