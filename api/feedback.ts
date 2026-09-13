@@ -28,14 +28,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ success: true, feedbacks: data });
       }
 
-      // Fallback: list from storage bucket if table doesn't exist
+      // Fallback: read from storage bucket if table does not exist
       const bucket = process.env.SUPA_BUCKET || 'drive-clone-supa-1';
       const { data: storageList } = await supabaseAdmin.storage.from(bucket).list('feedback');
+      
+      const parsedFeedbacks: any[] = [];
+      if (storageList && storageList.length > 0) {
+        const recentFiles = [...storageList]
+          .filter(f => f.name.endsWith('.json'))
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 30);
+
+        for (const file of recentFiles) {
+          try {
+            const { data: fileBlob } = await supabaseAdmin.storage
+              .from(bucket)
+              .download(`feedback/${file.name}`);
+            if (fileBlob) {
+              const text = await fileBlob.text();
+              parsedFeedbacks.push(JSON.parse(text));
+            }
+          } catch {}
+        }
+      }
+
       return res.status(200).json({
         success: true,
-        feedbacks: [],
+        source: 'storage_fallback',
+        feedbacks: parsedFeedbacks,
         storageFiles: storageList || [],
-        notice: 'Database table not created yet. Run supabase/migrations/002_feedback.sql in Supabase SQL editor.',
+        notice: 'Database table not created yet. Run supabase/migrations/002_feedback.sql in Supabase SQL editor to view directly in Table Editor.',
       });
     } catch (err: any) {
       return res.status(500).json({ error: err?.message || 'Failed to fetch feedback' });
