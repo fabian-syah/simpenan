@@ -52,11 +52,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('id', authUser.id)
       .single();
 
-      if (profile) {
-        userTier = profile.tier || 'starter';
-        maxFileSizeBytes = profile.max_file_size_bytes || (userTier === 'creator' ? 21474836480 : userTier === 'pro' || userTier === 'founder' ? 5368709120 : 262144000);
-        storageLimitBytes = profile.storage_limit_bytes || (userTier === 'creator' ? 214748364800 : userTier === 'pro' || userTier === 'founder' ? 53687091200 : 2147483648);
-      }
+    if (profile) {
+      userTier = profile.tier || 'starter';
+      maxFileSizeBytes = profile.max_file_size_bytes || (userTier === 'creator' ? 21474836480 : userTier === 'pro' || userTier === 'founder' ? 5368709120 : 262144000);
+      storageLimitBytes = profile.storage_limit_bytes || (userTier === 'creator' ? 214748364800 : userTier === 'pro' || userTier === 'founder' ? 53687091200 : 2147483648);
     }
 
     // Enforce max file size per tier
