@@ -1452,39 +1452,6 @@ export const VideoPlayer = React.memo(function VideoPlayer({
               <Maximize2 size={13} />
               <span>{videoFit === 'cover' ? 'Penuh' : videoFit === 'contain' ? 'Fit' : 'Regang'}</span>
             </button>
-
-            {/* Apple iOS Native Fullscreen Button (Hilangkan URL bar & bottom toolbar Safari) */}
-            {typeof HTMLVideoElement !== 'undefined' && typeof (getActiveVideo() as any)?.webkitEnterFullscreen === 'function' && (
-              <button
-                type="button"
-                onClick={() => {
-                  try {
-                    (getActiveVideo() as any)?.webkitEnterFullscreen();
-                  } catch (err) {
-                    console.warn('iOS webkitEnterFullscreen error:', err);
-                  }
-                }}
-                style={{
-                  background: 'rgba(56, 189, 248, 0.2)',
-                  border: '1px solid #38bdf8',
-                  borderRadius: 10,
-                  padding: '6px 10px',
-                  color: '#38bdf8',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  backdropFilter: 'blur(8px)',
-                  WebkitBackdropFilter: 'blur(8px)',
-                }}
-                title="Buka Layar Penuh Sistem Apple iOS (Bebas Bar Safari)"
-              >
-                <ExternalLink size={13} />
-                <span>Penuh iOS</span>
-              </button>
-            )}
           </div>
 
           <div
@@ -1510,44 +1477,52 @@ export const VideoPlayer = React.memo(function VideoPlayer({
           className="cv-resume-toast"
           style={{
             position: 'absolute',
-            top: 20,
+            top: isMobile ? 8 : 16,
             left: '50%',
             transform: 'translateX(-50%)',
-            background: 'rgba(15, 23, 42, 0.94)',
-            border: '1px solid rgba(56, 189, 248, 0.4)',
-            borderRadius: '12px',
-            padding: '8px 16px',
+            background: 'rgba(15, 23, 42, 0.92)',
+            border: '1px solid rgba(56, 189, 248, 0.35)',
+            borderRadius: 9999,
+            padding: isMobile ? '3px 8px 3px 12px' : '6px 14px',
             display: 'flex',
             alignItems: 'center',
-            gap: '12px',
+            gap: isMobile ? 6 : 10,
             zIndex: 35,
             backdropFilter: 'blur(16px)',
-            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.25)',
+            WebkitBackdropFilter: 'blur(16px)',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5), 0 0 15px rgba(56, 189, 248, 0.2)',
             color: '#f8fafc',
-            fontSize: '13px',
+            fontSize: isMobile ? 11 : 12.5,
             fontWeight: 500,
+            maxWidth: 'calc(100% - 24px)',
+            whiteSpace: 'nowrap',
           }}
         >
-          <span>Melanjutkan dari <strong style={{ color: '#38bdf8' }}>{resumeToast.formatted}</strong></span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {isMobile ? 'Lanjut ' : 'Melanjutkan dari '}
+            <strong style={{ color: '#38bdf8' }}>{resumeToast.formatted}</strong>
+          </span>
           <button
             type="button"
             onClick={handleRestartFromBeginning}
             style={{
-              background: 'rgba(56, 189, 248, 0.18)',
-              border: '1px solid rgba(56, 189, 248, 0.4)',
+              background: 'rgba(56, 189, 248, 0.2)',
+              border: '1px solid rgba(56, 189, 248, 0.45)',
               color: '#38bdf8',
-              borderRadius: '6px',
-              padding: '3px 10px',
-              fontSize: '11.5px',
+              borderRadius: 9999,
+              padding: isMobile ? '2px 8px' : '3px 10px',
+              fontSize: isMobile ? 10.5 : 11.5,
               fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '4px',
+              gap: 4,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
-            <RotateCcw size={12} />
-            Ulangi dari Awal
+            <RotateCcw size={isMobile ? 10 : 12} />
+            <span>{isMobile ? 'Ulangi' : 'Ulangi dari Awal'}</span>
           </button>
           <button
             type="button"
@@ -1560,7 +1535,8 @@ export const VideoPlayer = React.memo(function VideoPlayer({
               padding: '2px 4px',
               display: 'flex',
               alignItems: 'center',
-              fontSize: '13px',
+              fontSize: 12,
+              flexShrink: 0,
             }}
             title="Tutup Notifikasi"
           >
