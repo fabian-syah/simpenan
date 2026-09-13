@@ -209,12 +209,14 @@ export function Sidebar({
         })}
       </nav>
 
-      {/* Quota */}
-      {quotaElement}
+      {/* Quota Section */}
+      <div style={{ padding: '8px 14px 0' }}>
+        {quotaElement}
+      </div>
 
-      {/* Beta Feedback Button */}
-      {onOpenFeedback && (
-        <div style={{ padding: '0 16px 12px' }}>
+      {/* Utility Action Buttons (Beta Feedback & Legal Terms) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px' }}>
+        {onOpenFeedback && (
           <button
             type="button"
             onClick={onOpenFeedback}
@@ -224,7 +226,7 @@ export function Sidebar({
               alignItems: 'center',
               justifyContent: 'center',
               gap: 8,
-              padding: '8px 12px',
+              padding: '9px 12px',
               borderRadius: 10,
               background: 'rgba(56, 189, 248, 0.08)',
               border: '1px solid rgba(56, 189, 248, 0.22)',
@@ -239,12 +241,9 @@ export function Sidebar({
             <MessageSquarePlus size={15} />
             <span>Kirim Feedback Beta</span>
           </button>
-        </div>
-      )}
+        )}
 
-      {/* Compliance & Legal Terms Button */}
-      {onOpenLegal && (
-        <div style={{ padding: '0 16px 12px' }}>
+        {onOpenLegal && (
           <button
             type="button"
             onClick={onOpenLegal}
@@ -254,7 +253,7 @@ export function Sidebar({
               alignItems: 'center',
               justifyContent: 'center',
               gap: 8,
-              padding: '8px 12px',
+              padding: '9px 12px',
               borderRadius: 10,
               background: 'transparent',
               border: '1px solid var(--cv-border)',
@@ -269,8 +268,8 @@ export function Sidebar({
             <ShieldCheck size={15} style={{ color: 'var(--cv-accent)' }} />
             <span>Ketentuan & Privasi</span>
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Mobile Theme Switcher in Drawer */}
       {onThemeChange && theme && (

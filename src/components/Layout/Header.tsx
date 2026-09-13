@@ -194,25 +194,26 @@ export function Header({
           </button>
         )}
 
-        {/* Upgrade Button */}
+        {/* Upgrade Button - Visible on all devices */}
         {onOpenUpgrade && (
           <button
             type="button"
             onClick={onOpenUpgrade}
-            className="cv-btn cv-desktop-only"
+            className="cv-btn"
             style={{
-              padding: '6px 12px',
+              padding: '6px 11px',
               borderRadius: 8,
               background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.2), rgba(14, 165, 233, 0.3))',
               border: '1px solid #0284c7',
               color: '#38bdf8',
               fontSize: 12,
               fontWeight: 700,
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: 6,
+              gap: 5,
               cursor: 'pointer',
               transition: 'all 0.15s ease',
+              flexShrink: 0,
             }}
             title="Upgrade Kapasitas Penyimpanan"
           >

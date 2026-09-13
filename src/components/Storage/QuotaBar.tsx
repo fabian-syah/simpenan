@@ -144,29 +144,38 @@ export function QuotaBar({
           Batas upload: <strong>{formatBytes(userQuota.maxFileSizeBytes)} / file</strong>
         </div>
 
-        {userQuota.tier === 'starter' && onOpenUpgrade && (
+        {onOpenUpgrade && userQuota.tier !== 'creator' && (
           <button
             type="button"
             onClick={onOpenUpgrade}
             style={{
               width: '100%',
-              padding: '7px 10px',
+              padding: '8px 10px',
               backgroundColor: 'rgba(56, 189, 248, 0.12)',
               border: '1px solid rgba(56, 189, 248, 0.3)',
               borderRadius: 8,
               color: '#38bdf8',
-              fontSize: 11,
+              fontSize: 11.5,
               fontWeight: 700,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 6,
+              transition: 'all 0.15s ease',
               marginBottom: isSuperAdmin ? 10 : 0,
             }}
           >
-            <Zap size={12} fill="#38bdf8" />
-            <span>Upgrade ke 50 GB Lifetime (Rp 99.000)</span>
+            <Zap size={13} fill="#38bdf8" />
+            <span>
+              {userQuota.tier === 'starter'
+                ? 'Upgrade ke 50 GB Lifetime (Rp 99.000)'
+                : userQuota.tier === 'testing'
+                ? 'Upgrade ke Founder (50 GB Lifetime)'
+                : userQuota.tier === 'founder'
+                ? 'Upgrade ke Creator (200 GB)'
+                : 'Upgrade Kapasitas Simpenan'}
+            </span>
           </button>
         )}
 
