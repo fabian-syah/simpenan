@@ -1102,7 +1102,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
         );
       } else if (isMkv) {
         setErrorMessage(
-          'Browser tidak mendukung format container .mkv atau codec anime 10-bit secara native. Silakan gunakan Pemutar Streaming Alternatif atau unduh file untuk diputar di VLC Player.'
+          'Browser tidak mendukung format container .mkv atau codec video 10-bit tertentu secara native. Silakan gunakan Pemutar Streaming Alternatif atau unduh file untuk diputar secara lokal.'
         );
       } else {
         setErrorMessage(

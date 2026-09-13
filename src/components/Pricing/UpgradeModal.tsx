@@ -9,6 +9,7 @@ interface UpgradeModalProps {
   userQuota?: UserQuota | null;
   initialReason?: string | null;
   onUpgradeSuccess?: () => void;
+  onOpenLegal?: () => void;
 }
 
 export const UpgradeModal: React.FC<UpgradeModalProps> = ({
@@ -17,6 +18,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   userQuota,
   initialReason,
   onUpgradeSuccess,
+  onOpenLegal,
 }) => {
   const [selectedTier, setSelectedTier] = useState<'founder' | 'pro' | 'creator'>('founder');
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly' | 'lifetime'>('lifetime');
@@ -457,6 +459,27 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
               <div style={{ textAlign: 'center', marginTop: 12, fontSize: 11, color: '#64748b' }}>
                 Mendukung pembayaran instan QRIS dan Virtual Account via Paywuz.id
               </div>
+
+              {onOpenLegal && (
+                <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: '#94a3b8' }}>
+                  Dengan bertransaksi, Anda menyetujui{' '}
+                  <button
+                    type="button"
+                    onClick={onOpenLegal}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#38bdf8',
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                      padding: 0,
+                      fontSize: 11,
+                    }}
+                  >
+                    Ketentuan Layanan, Kebijakan Anti-Bajakan & Privasi
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>

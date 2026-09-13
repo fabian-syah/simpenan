@@ -14,6 +14,7 @@ import {
   Moon,
   Monitor,
   MessageSquarePlus,
+  ShieldCheck,
 } from 'lucide-react';
 import type { StorageProvider, TargetStorageOption } from '../../types';
 import type { Theme } from '../../hooks/useTheme';
@@ -33,6 +34,7 @@ interface SidebarProps {
   theme?: Theme;
   onThemeChange?: (theme: Theme) => void;
   onOpenFeedback?: () => void;
+  onOpenLegal?: () => void;
   isSuperAdmin?: boolean;
 }
 
@@ -58,6 +60,7 @@ export function Sidebar({
   theme,
   onThemeChange,
   onOpenFeedback,
+  onOpenLegal,
   isSuperAdmin = false,
 }: SidebarProps) {
   const [dragOverDrive, setDragOverDrive] = useState(false);
@@ -235,6 +238,36 @@ export function Sidebar({
           >
             <MessageSquarePlus size={15} />
             <span>Kirim Feedback Beta</span>
+          </button>
+        </div>
+      )}
+
+      {/* Compliance & Legal Terms Button */}
+      {onOpenLegal && (
+        <div style={{ padding: '0 16px 12px' }}>
+          <button
+            type="button"
+            onClick={onOpenLegal}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: '8px 12px',
+              borderRadius: 10,
+              background: 'transparent',
+              border: '1px solid var(--cv-border)',
+              color: 'var(--cv-text-secondary)',
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="Ketentuan Layanan, Kebijakan Anti-Bajakan (DMCA), dan Kebijakan Privasi"
+          >
+            <ShieldCheck size={15} style={{ color: 'var(--cv-accent)' }} />
+            <span>Ketentuan & Privasi</span>
           </button>
         </div>
       )}

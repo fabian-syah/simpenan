@@ -271,7 +271,7 @@ function runFFmpegTranscode(
     // High compatibility arguments:
     // 1. -threads 0: use all native CPU cores for maximum speed
     // 2. -vf "scale=-2:min(ih\,MAX_HEIGHT)": maintain aspect ratio, prevent upscaling
-    // 3. -c:v libx264 -preset veryfast -pix_fmt yuv420p: universal 8-bit MP4 compatibility (fixes 10-bit anime MKV playback)
+    // 3. -c:v libx264 -preset veryfast -pix_fmt yuv420p: universal 8-bit MP4 compatibility (fixes 10-bit video MKV playback)
     // 4. -sn: strip incompatible ASS/SSA subtitles
     // 5. -c:a aac: universal AAC audio
     // 6. -movflags +faststart: enables instant web playback while streaming

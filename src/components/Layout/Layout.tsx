@@ -28,6 +28,7 @@ interface LayoutProps {
   onMoveFiles?: (fileIds: string[], targetPath: string) => Promise<void>;
   onRefresh?: () => Promise<void> | void;
   onOpenFeedback?: () => void;
+  onOpenLegal?: () => void;
   user?: any | null;
   userQuota?: any | null;
   onOpenAuth?: () => void;
@@ -57,6 +58,7 @@ export function Layout({
   onMoveFiles,
   onRefresh,
   onOpenFeedback,
+  onOpenLegal,
   user,
   userQuota,
   onOpenAuth,
@@ -207,6 +209,7 @@ export function Layout({
         theme={theme}
         onThemeChange={onThemeChange}
         onOpenFeedback={onOpenFeedback}
+        onOpenLegal={onOpenLegal}
         isSuperAdmin={isSuperAdmin}
       />
 

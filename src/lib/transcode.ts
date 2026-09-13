@@ -76,7 +76,7 @@ export async function transcodeVideo(
     resolution === '720p' ? '-2:720' : resolution === '480p' ? '-2:480' : '-2:360';
 
   // Fast ultrafast preset with H.264 & AAC for universal browser playback
-  // Includes -pix_fmt yuv420p for 10-bit anime conversion and -sn to skip unsupported subtitles
+  // Includes -pix_fmt yuv420p for 10-bit video conversion and -sn to skip unsupported subtitles
   await ff.exec([
     '-i', inputName,
     '-map', '0:v:0',

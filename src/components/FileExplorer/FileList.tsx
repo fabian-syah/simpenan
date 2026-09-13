@@ -28,6 +28,7 @@ interface FileListProps {
   onFolderHover?: (path: string) => void;
   user?: any | null;
   onOpenAuth?: () => void;
+  onOpenLegal?: () => void;
 }
 
 const ICON_MAP: Record<string, any> = {
@@ -60,7 +61,7 @@ export const PREDEFINED_TAGS = [
   { name: 'Pribadi', color: '#8b5cf6' },
   { name: 'Selesai', color: '#10b981' },
   { name: 'Arsip', color: '#64748b' },
-  { name: 'Anime', color: '#ec4899' },
+  { name: 'Kreatif', color: '#ec4899' },
 ];
 
 function getBroadCategory(mimeType: string | null, isFolder: boolean): 'folder' | 'video' | 'audio' | 'document' | 'image' | 'archive' | 'other' {
@@ -114,6 +115,7 @@ export function FileList({
   onFolderHover,
   user,
   onOpenAuth,
+  onOpenLegal,
 }: FileListProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: FileRecord } | null>(null);
   const contextRef = useRef<HTMLDivElement>(null);
@@ -577,6 +579,7 @@ export function FileList({
           categoryFilter={categoryFilter}
           user={user}
           onOpenAuth={onOpenAuth}
+          onOpenLegal={onOpenLegal}
         />
       ) : viewMode === 'grid' ? (
         <div className="cv-file-grid cv-stagger">
@@ -1336,11 +1339,13 @@ function EmptyState({
   categoryFilter,
   user,
   onOpenAuth,
+  onOpenLegal,
 }: {
   searchQuery: string;
   categoryFilter?: string;
   user?: any | null;
   onOpenAuth?: () => void;
+  onOpenLegal?: () => void;
 }) {
   if (!user && !searchQuery) {
     return (
@@ -1388,6 +1393,31 @@ function EmptyState({
             <span>Masuk / Daftar Sekarang</span>
           </button>
         )}
+
+        <div style={{ marginTop: 32, paddingTop: 20, borderTop: '1px solid var(--cv-border)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 16, fontSize: 12, color: 'var(--cv-text-tertiary)' }}>
+            <span>Isolasi Data Pribadi RLS</span>
+            <span>Enkripsi Multi-Cloud</span>
+            <span>Kepatuhan Hak Cipta & Anti-Bajakan</span>
+          </div>
+          {onOpenLegal && (
+            <button
+              type="button"
+              onClick={onOpenLegal}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--cv-accent)',
+                fontSize: 12,
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                padding: '4px 8px',
+              }}
+            >
+              Ketentuan Layanan & Kebijakan Anti-Bajakan (DMCA)
+            </button>
+          )}
+        </div>
       </div>
     );
   }

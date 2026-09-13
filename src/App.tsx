@@ -12,6 +12,7 @@ import { AudioPlayerBar } from './components/AudioPlayer/AudioPlayerBar';
 import { FeedbackModal } from './components/Feedback/FeedbackModal';
 import { AuthModal } from './components/Auth/AuthModal';
 import { UpgradeModal } from './components/Pricing/UpgradeModal';
+import { LegalModal } from './components/Legal/LegalModal';
 import type { FileRecord, TargetStorageOption } from './types';
 import { getDownloadUrl } from './lib/api';
 import { supabase } from './lib/supabase';
@@ -72,6 +73,14 @@ export default function App() {
   const handleOpenUpgrade = useCallback((reason?: string) => {
     setUpgradeReason(reason || null);
     setShowUpgradeModal(true);
+  }, []);
+
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [legalInitialTab, setLegalInitialTab] = useState<'terms' | 'piracy' | 'privacy' | 'support'>('terms');
+
+  const handleOpenLegal = useCallback((tab: 'terms' | 'piracy' | 'privacy' | 'support' = 'terms') => {
+    setLegalInitialTab(tab);
+    setShowLegalModal(true);
   }, []);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -252,6 +261,7 @@ export default function App() {
         onMoveFiles={moveFiles}
         onRefresh={handleRefresh}
         onOpenFeedback={() => handleOpenFeedback()}
+        onOpenLegal={() => handleOpenLegal('terms')}
         user={user}
         userQuota={quota?.user_quota}
         onOpenAuth={() => handleOpenAuth('login')}
@@ -266,6 +276,7 @@ export default function App() {
           searchQuery={searchQuery}
           user={user}
           onOpenAuth={() => handleOpenAuth('login')}
+          onOpenLegal={() => handleOpenLegal('terms')}
           onFolderOpen={navigateTo}
           onDelete={async (id) => {
             await deleteFile(id);
@@ -417,6 +428,17 @@ export default function App() {
         onUpgradeSuccess={() => {
           fetchQuota();
         }}
+        onOpenLegal={() => {
+          setShowUpgradeModal(false);
+          handleOpenLegal('terms');
+        }}
+      />
+
+      {/* Compliance & Legal Modal (Terms, Anti-Piracy DMCA, Privacy Policy, Support) */}
+      <LegalModal
+        isOpen={showLegalModal}
+        onClose={() => setShowLegalModal(false)}
+        initialTab={legalInitialTab}
       />
     </DropZone>
   );
