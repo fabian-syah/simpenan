@@ -82,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       if (email) {
         const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
-        const found = users?.find(u => u.email === email.trim());
+        const found = users?.find((u: any) => u.email === email.trim());
         if (found) {
           await supabaseAdmin.auth.admin.updateUserById(found.id, { email_confirm: true });
           return res.status(200).json({ ok: true, confirmed: true });
