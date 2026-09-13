@@ -169,6 +169,9 @@ export function useUpload(
             if (file.type) {
               xhr.setRequestHeader('Content-Type', file.type);
             }
+            if (file.size > 0) {
+              xhr.setRequestHeader('Content-Range', `bytes 0-${file.size - 1}/${file.size}`);
+            }
 
             xhr.upload.onprogress = (event) => {
               if (event.lengthComputable) {
