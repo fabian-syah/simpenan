@@ -32,7 +32,7 @@ export function ShareModal({ file, onClose }: ShareModalProps) {
     <div
       className="cv-modal-overlay"
       onClick={onClose}
-      style={{ zIndex: 10010, background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(8px)' }}
+      style={{ zIndex: 100050, background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(8px)' }}
     >
       <div
         className="cv-modal-content cv-bento-card"

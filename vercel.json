@@ -10,7 +10,9 @@
     { "source": "/api/storage/providers", "destination": "/api/storage?action=providers" },
     { "source": "/api/auth/login", "destination": "/api/storage?action=login" },
     { "source": "/api/auth/register", "destination": "/api/storage?action=register" },
-    { "source": "/api/auth/session", "destination": "/api/storage?action=session" }
+    { "source": "/api/auth/session", "destination": "/api/storage?action=session" },
+    { "source": "/share/:path*", "destination": "/index.html" },
+    { "source": "/((?!api/|assets/|ffmpeg/|favicon.ico).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

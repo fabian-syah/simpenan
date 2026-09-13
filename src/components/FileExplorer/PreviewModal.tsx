@@ -202,6 +202,27 @@ export function PreviewModal({ file, onClose, onOpenFeedback, onShare, onToggleS
               {file.name}
             </div>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexShrink: 0 }}>
+              {onShare && (
+                <button
+                  type="button"
+                  onClick={() => onShare(file.id)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#cbd5e1',
+                    cursor: 'pointer',
+                    padding: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    transition: 'color 0.2s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#38bdf8')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = '#cbd5e1')}
+                  title="Bagikan link berkas"
+                >
+                  <LinkIcon size={20} />
+                </button>
+              )}
               <a
                 href={isVideo ? activeUrl : getDownloadUrl(file.id, true)}
                 download={file.name}
@@ -468,8 +489,8 @@ export function PreviewModal({ file, onClose, onOpenFeedback, onShare, onToggleS
                 type="button"
                 className="cv-context-item"
                 onClick={() => {
-                  onShare(file.id);
                   setContextMenu(null);
+                  onShare(file.id);
                 }}
               >
                 <LinkIcon size={15} /> Bagikan Link

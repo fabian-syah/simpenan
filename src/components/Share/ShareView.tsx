@@ -69,7 +69,8 @@ export function ShareView({ fileId }: { fileId: string }) {
   }
 
   const category = getFileCategory(file.mime_type, file.is_folder);
-  const downloadUrl = `/api/files/download?id=${file.id}`;
+  const downloadUrl = `/api/files/download?id=${file.id}&download=true`;
+  const viewUrl = `/api/files/download?id=${file.id}`;
 
   return (
     <div
@@ -173,7 +174,7 @@ export function ShareView({ fileId }: { fileId: string }) {
         ) : category === 'image' ? (
           <div style={{ textAlign: 'center', maxWidth: '100%' }}>
             <img
-              src={downloadUrl}
+              src={viewUrl}
               alt={file.name}
               style={{
                 maxWidth: '100%',
@@ -217,7 +218,7 @@ export function ShareView({ fileId }: { fileId: string }) {
             </div>
             <h1 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>{file.name}</h1>
             <p style={{ fontSize: 13, color: '#94a3b8', marginBottom: 24 }}>{formatBytes(file.size_bytes)}</p>
-            <audio src={downloadUrl} controls style={{ width: '100%' }} />
+            <audio src={viewUrl} controls style={{ width: '100%' }} />
           </div>
         ) : (
           <div
