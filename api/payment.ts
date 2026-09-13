@@ -72,6 +72,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const action = (req.query.action as string) || 'create';
 
+  // 0. AUTO-CONFIRM: Immediately confirm email for instant registration
+  if (action === 'auto-confirm' && req.method === 'POST') {
+    try {
+      const { userId, email } = req.body || {};
+      if (userId) {
+        await supabaseAdmin.auth.admin.updateUserById(userId, { email_confirm: true });
+        return res.status(200).json({ ok: true, confirmed: true });
+      }
+      if (email) {
+        const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+        const found = users?.find(u => u.email === email.trim());
+        if (found) {
+          await supabaseAdmin.auth.admin.updateUserById(found.id, { email_confirm: true });
+          return res.status(200).json({ ok: true, confirmed: true });
+        }
+      }
+      return res.status(400).json({ error: 'userId or email is required' });
+    } catch (err: any) {
+      console.error('Auto-confirm error:', err);
+      return res.status(500).json({ error: err.message || 'Auto-confirm failed' });
+    }
+  }
+
   // 1. WEBHOOK: Receive callback from Paywuz.id
   if (action === 'webhook' && req.method === 'POST') {
     try {

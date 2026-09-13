@@ -47,10 +47,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         if (error) {
           setErrorMsg(error.message || 'Gagal mendaftarkan akun.');
         } else if (data?.user) {
-          setSuccessMsg('Akun berhasil dibuat! Silakan cek email untuk konfirmasi atau langsung masuk.');
           if (data.session) {
             onAuthSuccess?.();
             onClose();
+            return;
+          }
+
+          // Trigger backend auto-confirm to bypass email confirmation
+          try {
+            await fetch('/api/payment?action=auto-confirm', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: data.user.id, email: email.trim() }),
+            });
+          } catch (err) {
+            console.warn('Auto-confirm request warning:', err);
+          }
+
+          // Immediately log the user in
+          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+
+          if (signInData?.session) {
+            onAuthSuccess?.();
+            onClose();
+          } else if (signInErr) {
+            setErrorMsg(signInErr.message || 'Gagal masuk secara otomatis.');
+            setMode('login');
           } else {
             setMode('login');
           }
