@@ -122,61 +122,39 @@ export function FeedbackModal({
   return (
     <div
       className="cv-modal-overlay"
-      style={{ zIndex: 100000, backdropFilter: 'blur(8px)' }}
+      style={{ zIndex: 100000 }}
       onClick={(e) => {
         if (e.target === e.currentTarget && !isSubmitting) onClose();
       }}
     >
       <div
-        className="cv-modal cv-bento-card"
-        style={{
-          width: '92%',
-          maxWidth: 520,
-          maxHeight: 'min(92vh, 92dvh)',
-          display: 'flex',
-          flexDirection: 'column',
-          background: 'var(--cv-surface, #0f172a)',
-          border: '1px solid var(--cv-border, rgba(255, 255, 255, 0.12))',
-          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.65)',
-          borderRadius: 18,
-          overflow: 'hidden',
-          padding: 0,
-        }}
+        className="cv-feedback-modal"
         role="dialog"
         aria-modal="true"
       >
         {/* Header */}
-        <div
-          style={{
-            padding: '16px 20px',
-            borderBottom: '1px solid var(--cv-border, rgba(255, 255, 255, 0.08))',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            background: 'rgba(255, 255, 255, 0.02)',
-          }}
-        >
+        <div className="cv-feedback-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div
               style={{
                 width: 34,
                 height: 34,
                 borderRadius: 10,
-                background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(14, 165, 233, 0.4))',
-                color: '#38bdf8',
+                background: 'var(--cv-accent-muted)',
+                color: 'var(--cv-accent)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
+                border: '1px solid var(--cv-border-hover)',
               }}
             >
               <Sparkles size={18} />
             </div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--cv-text-primary, #f8fafc)' }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--cv-text-primary)' }}>
                 Kirim Feedback & Laporan
               </div>
-              <div style={{ fontSize: 11, color: 'var(--cv-text-tertiary, #94a3b8)', marginTop: 1 }}>
+              <div style={{ fontSize: 11.5, color: 'var(--cv-text-secondary)', marginTop: 1 }}>
                 Bantu pengujian beta Simpenan Cloud
               </div>
             </div>
@@ -186,10 +164,11 @@ export function FeedbackModal({
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
+            aria-label="Tutup dialog"
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'var(--cv-text-tertiary, #94a3b8)',
+              color: 'var(--cv-text-tertiary)',
               cursor: 'pointer',
               padding: 6,
               borderRadius: 8,
@@ -220,7 +199,7 @@ export function FeedbackModal({
                 height: 56,
                 borderRadius: '50%',
                 background: 'rgba(16, 185, 129, 0.15)',
-                color: '#10b981',
+                color: 'var(--cv-success, #10b981)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -230,18 +209,18 @@ export function FeedbackModal({
             >
               <CheckCircle2 size={32} />
             </div>
-            <h4 style={{ fontSize: 17, fontWeight: 700, color: 'var(--cv-text-primary, #f8fafc)', margin: '0 0 8px' }}>
+            <h4 style={{ fontSize: 17, fontWeight: 700, color: 'var(--cv-text-primary)', margin: '0 0 8px' }}>
               Laporan Berhasil Dikirim!
             </h4>
-            <p style={{ fontSize: 13, color: 'var(--cv-text-secondary, #94a3b8)', maxWidth: 360, margin: 0, lineHeight: 1.5 }}>
+            <p style={{ fontSize: 13, color: 'var(--cv-text-secondary)', maxWidth: 360, margin: 0, lineHeight: 1.5 }}>
               Terima kasih atas kontribusi Anda dalam pengujian beta. Laporan ini telah tersimpan di sistem kami.
             </p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} style={{ padding: '18px 20px', overflowY: 'auto', flex: 1 }}>
+          <form onSubmit={handleSubmit} className="cv-feedback-body">
             {/* Category Select Pills */}
             <div style={{ marginBottom: 14 }}>
-              <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--cv-text-secondary, #cbd5e1)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+              <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--cv-text-secondary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                 Kategori Kendala / Masukan
               </label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -252,17 +231,7 @@ export function FeedbackModal({
                       key={cat.id}
                       type="button"
                       onClick={() => setCategory(cat.id)}
-                      style={{
-                        background: isSelected ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.04)',
-                        border: isSelected ? '1px solid #38bdf8' : '1px solid var(--cv-border, rgba(255, 255, 255, 0.08))',
-                        color: isSelected ? '#38bdf8' : 'var(--cv-text-secondary, #cbd5e1)',
-                        padding: '5px 10px',
-                        borderRadius: 8,
-                        fontSize: 12,
-                        fontWeight: isSelected ? 600 : 500,
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                      }}
+                      className={`cv-feedback-category-btn ${isSelected ? 'active' : ''}`}
                     >
                       {cat.label}
                     </button>
@@ -277,9 +246,9 @@ export function FeedbackModal({
                 style={{
                   padding: '8px 12px',
                   borderRadius: 8,
-                  background: 'rgba(56, 189, 248, 0.08)',
-                  border: '1px solid rgba(56, 189, 248, 0.2)',
-                  color: '#38bdf8',
+                  background: 'var(--cv-accent-muted)',
+                  border: '1px solid var(--cv-border-hover)',
+                  color: 'var(--cv-accent)',
                   fontSize: 11.5,
                   display: 'flex',
                   alignItems: 'center',
@@ -296,8 +265,8 @@ export function FeedbackModal({
 
             {/* Message Textarea */}
             <div style={{ marginBottom: 14 }}>
-              <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--cv-text-secondary, #cbd5e1)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                Deskripsi Masalah / Saran <span style={{ color: '#ef4444' }}>*</span>
+              <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--cv-text-secondary)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                Deskripsi Masalah / Saran <span style={{ color: 'var(--cv-error, #ef4444)' }}>*</span>
               </label>
               <textarea
                 value={message}
@@ -306,66 +275,33 @@ export function FeedbackModal({
                 rows={4}
                 required
                 autoFocus
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  background: 'rgba(0, 0, 0, 0.25)',
-                  border: '1px solid var(--cv-border, rgba(255, 255, 255, 0.12))',
-                  borderRadius: 10,
-                  padding: '10px 12px',
-                  color: 'var(--cv-text-primary, #f8fafc)',
-                  fontSize: 13,
-                  lineHeight: 1.5,
-                  resize: 'vertical',
-                  outline: 'none',
-                  fontFamily: 'inherit',
-                }}
+                className="cv-feedback-textarea"
               />
             </div>
 
             {/* Contact Input (Optional) */}
             <div style={{ marginBottom: 14 }}>
-              <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--cv-text-secondary, #cbd5e1)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                Kontak / Email / Sosmed <span style={{ fontSize: 10.5, textTransform: 'none', color: 'var(--cv-text-tertiary, #94a3b8)' }}>(Opsional jika ingin dihubungi tim)</span>
+              <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--cv-text-secondary)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                Kontak / Email / Sosmed <span style={{ fontSize: 10.5, textTransform: 'none', color: 'var(--cv-text-tertiary)' }}>(Opsional jika ingin dihubungi tim)</span>
               </label>
               <input
                 type="text"
                 value={contact}
                 onChange={(e) => setContact(e.target.value)}
                 placeholder="nama@email.com atau @username"
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  background: 'rgba(0, 0, 0, 0.25)',
-                  border: '1px solid var(--cv-border, rgba(255, 255, 255, 0.12))',
-                  borderRadius: 8,
-                  padding: '8px 12px',
-                  color: 'var(--cv-text-primary, #f8fafc)',
-                  fontSize: 12.5,
-                  outline: 'none',
-                  fontFamily: 'inherit',
-                }}
+                className="cv-feedback-input"
               />
             </div>
 
             {/* Technical Metadata Box */}
-            <div
-              style={{
-                marginBottom: 16,
-                padding: '8px 12px',
-                borderRadius: 8,
-                background: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid var(--cv-border, rgba(255, 255, 255, 0.06))',
-                fontSize: 11.5,
-              }}
-            >
+            <div className="cv-feedback-meta-box">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', color: 'var(--cv-text-secondary, #cbd5e1)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', color: 'var(--cv-text-secondary)' }}>
                   <input
                     type="checkbox"
                     checked={includeMetadata}
                     onChange={(e) => setIncludeMetadata(e.target.checked)}
-                    style={{ accentColor: '#38bdf8', cursor: 'pointer' }}
+                    style={{ accentColor: 'var(--cv-accent)', cursor: 'pointer' }}
                   />
                   <span>Sertakan info teknis otomatis (Browser, OS, resolusi layar)</span>
                 </label>
@@ -375,9 +311,10 @@ export function FeedbackModal({
                   style={{
                     background: 'transparent',
                     border: 'none',
-                    color: '#38bdf8',
+                    color: 'var(--cv-accent)',
                     cursor: 'pointer',
                     fontSize: 11,
+                    fontWeight: 600,
                     padding: '2px 4px',
                   }}
                 >
@@ -390,10 +327,10 @@ export function FeedbackModal({
                   style={{
                     marginTop: 8,
                     paddingTop: 8,
-                    borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                    borderTop: '1px solid var(--cv-border)',
                     fontFamily: 'monospace',
                     fontSize: 10.5,
-                    color: '#94a3b8',
+                    color: 'var(--cv-text-tertiary)',
                     lineHeight: 1.5,
                   }}
                 >
@@ -401,7 +338,7 @@ export function FeedbackModal({
                   <div>Screen: {metadata.screen}</div>
                   <div>Platform: {metadata.platform}</div>
                   {activeFile && <div>File: {activeFile.name} ({activeFile.id})</div>}
-                  {initialError && <div style={{ color: '#f87171' }}>Error: {initialError}</div>}
+                  {initialError && <div style={{ color: 'var(--cv-error, #ef4444)' }}>Error: {initialError}</div>}
                 </div>
               )}
             </div>
@@ -413,7 +350,7 @@ export function FeedbackModal({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
-                  color: '#ef4444',
+                  color: 'var(--cv-error, #ef4444)',
                   fontSize: 12,
                   marginBottom: 14,
                   padding: '8px 12px',
@@ -433,36 +370,17 @@ export function FeedbackModal({
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                style={{
-                  background: 'transparent',
-                  border: '1px solid var(--cv-border, rgba(255, 255, 255, 0.15))',
-                  color: 'var(--cv-text-secondary, #cbd5e1)',
-                  padding: '8px 16px',
-                  borderRadius: 8,
-                  fontSize: 13,
-                  fontWeight: 500,
-                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                }}
+                className="cv-btn cv-btn-secondary"
               >
                 Batal
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting || !message.trim()}
+                className="cv-btn cv-btn-primary"
                 style={{
-                  background: message.trim() ? '#0284c7' : 'rgba(2, 132, 199, 0.4)',
-                  border: 'none',
-                  color: '#ffffff',
-                  padding: '8px 18px',
-                  borderRadius: 8,
-                  fontSize: 13,
-                  fontWeight: 600,
+                  opacity: isSubmitting || !message.trim() ? 0.5 : 1,
                   cursor: isSubmitting || !message.trim() ? 'not-allowed' : 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  boxShadow: message.trim() ? '0 4px 15px rgba(2, 132, 199, 0.35)' : 'none',
-                  transition: 'all 0.15s ease',
                 }}
               >
                 {isSubmitting ? (

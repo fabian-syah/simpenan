@@ -174,9 +174,9 @@ export function Header({
             style={{
               padding: '6px 12px',
               borderRadius: 8,
-              background: 'rgba(56, 189, 248, 0.1)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              color: '#38bdf8',
+              background: 'var(--cv-accent-muted)',
+              border: '1px solid var(--cv-border)',
+              color: 'var(--cv-accent)',
               fontSize: 12,
               fontWeight: 600,
               display: 'flex',

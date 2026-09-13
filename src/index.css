@@ -2935,6 +2935,135 @@ html.dark .cv-file-icon-box.other        { background: rgba(100, 116, 139, 0.2);
   }
 }
 
+/* Feedback Modal Responsive & Adaptive Theme System */
+.cv-feedback-modal {
+  background-color: var(--cv-bg-primary);
+  border: 1px solid var(--cv-border);
+  border-radius: 18px;
+  width: 100%;
+  max-width: 520px;
+  max-height: min(92vh, 92dvh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--cv-shadow-lg), var(--cv-card-glow);
+  box-sizing: border-box;
+  animation: cvScaleIn 0.2s var(--cv-ease);
+}
 
+.cv-feedback-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--cv-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--cv-bg-secondary);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
 
+.cv-feedback-body {
+  padding: 18px 20px;
+  overflow-y: auto;
+  flex: 1;
+  box-sizing: border-box;
+}
 
+.cv-feedback-category-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid var(--cv-border);
+  background-color: var(--cv-bg-secondary);
+  color: var(--cv-text-secondary);
+  font-family: inherit;
+}
+
+.cv-feedback-category-btn:hover {
+  background-color: var(--cv-bg-hover);
+  border-color: var(--cv-border-hover);
+  color: var(--cv-accent);
+}
+
+.cv-feedback-category-btn.active {
+  background-color: var(--cv-accent-muted);
+  border-color: var(--cv-accent);
+  color: var(--cv-accent);
+  font-weight: 600;
+}
+
+.cv-feedback-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--cv-bg-tertiary);
+  border: 1px solid var(--cv-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--cv-text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+  transition: all var(--cv-transition-fast);
+}
+
+.cv-feedback-textarea::placeholder {
+  color: var(--cv-text-tertiary);
+}
+
+.cv-feedback-textarea:focus {
+  background-color: var(--cv-bg-primary);
+  border-color: var(--cv-border-focus);
+  box-shadow: 0 0 0 3px var(--cv-accent-muted);
+}
+
+.cv-feedback-input {
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--cv-bg-tertiary);
+  border: 1px solid var(--cv-border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--cv-text-primary);
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+  transition: all var(--cv-transition-fast);
+}
+
+.cv-feedback-input::placeholder {
+  color: var(--cv-text-tertiary);
+}
+
+.cv-feedback-input:focus {
+  background-color: var(--cv-bg-primary);
+  border-color: var(--cv-border-focus);
+  box-shadow: 0 0 0 3px var(--cv-accent-muted);
+}
+
+.cv-feedback-meta-box {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background-color: var(--cv-bg-secondary);
+  border: 1px solid var(--cv-border);
+  font-size: 11.5px;
+}
+
+@media (max-width: 480px) {
+  .cv-feedback-modal {
+    max-height: min(95vh, 95dvh);
+    border-radius: 14px;
+    width: 95%;
+  }
+  .cv-feedback-header {
+    padding: 14px 16px;
+  }
+  .cv-feedback-body {
+    padding: 14px 16px;
+  }
+}
