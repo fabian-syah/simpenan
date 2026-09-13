@@ -5,7 +5,7 @@
 
 export const GDRIVE_SCRIPT_URL =
   process.env.GDRIVE_SCRIPT_URL?.trim() ||
-  'https://script.google.com/macros/s/AKfycbzcTS30sGvhwymFDS76xcpUfGTDpkVHCcDZUU6zBTPogEqD7u1OeW0jVENJHuq4TthF/exec';
+  'https://script.google.com/macros/s/AKfycbyiy75CQu-DAXNZT3GGryO4mZARV_7Inw19N-RPC4W3bysbLV6yplOAeKNoxXIGKPXR/exec';
 
 export const GDRIVE_SECRET =
   process.env.GDRIVE_SECRET?.trim() || 'simpenan_gdrive_secret_2026';
