@@ -34,7 +34,6 @@ interface VideoPlayerProps {
   isMinimized?: boolean;
   onToggleMinimize?: (minimized: boolean) => void;
   onFullscreenChange?: (isFullscreen: boolean) => void;
-  onSwitchToGDrivePlayer?: () => void;
   onReportIssue?: (errorMsg: string) => void;
 }
 
@@ -248,7 +247,6 @@ export const VideoPlayer = React.memo(function VideoPlayer({
   isMinimized = false,
   onToggleMinimize,
   onFullscreenChange,
-  onSwitchToGDrivePlayer,
   onReportIssue,
 }: VideoPlayerProps) {
   // Dual-Video Seamless Hot-Swap Architecture (YouTube-style instant switching)
@@ -2240,31 +2238,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
               );
             })()}
 
-            {/* If Google Drive Player is available, offer prominent button */}
-            {onSwitchToGDrivePlayer && (
-              <button
-                type="button"
-                onClick={onSwitchToGDrivePlayer}
-                className="cv-btn-primary"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '10px 20px',
-                  borderRadius: 10,
-                  fontWeight: 600,
-                  fontSize: 14,
-                  boxShadow: '0 4px 20px rgba(2, 132, 199, 0.4)',
-                  cursor: 'pointer',
-                  border: 'none',
-                  background: '#0284c7',
-                  color: '#ffffff',
-                }}
-              >
-                <Play size={16} fill="white" />
-                Putar via Pemutar Streaming Alternatif
-              </button>
-            )}
+
 
             <a
               href={url}

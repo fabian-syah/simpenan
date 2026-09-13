@@ -1007,13 +1007,9 @@ function FileCard({
   const [thumbError, setThumbError] = useState(false);
 
   const thumbSrc = useMemo(() => {
-    if (isImage && (file.provider_id === 'gdrive' || file.provider_id?.startsWith('gdrive')) && file.storage_key) {
-      const cacheBust = thumbRetry > 0 ? `?retry=${thumbRetry}` : '';
-      return `https://lh3.googleusercontent.com/d/${encodeURIComponent(file.storage_key)}=s360${cacheBust}`;
-    }
     const cacheBust = thumbRetry > 0 ? `&retry=${thumbRetry}` : '';
     return `/api/files/thumbnail?id=${file.id}${cacheBust}`;
-  }, [file.id, file.provider_id, file.storage_key, isImage, thumbRetry]);
+  }, [file.id, thumbRetry]);
 
   const customAccentColor = file.is_folder && folderColor ? folderColor : undefined;
 

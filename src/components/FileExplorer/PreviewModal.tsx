@@ -15,15 +15,7 @@ export function PreviewModal({ file, onClose, onOpenFeedback }: PreviewModalProp
   const [loading, setLoading] = useState(true);
   const category = getFileCategory(file.mime_type, file.is_folder);
   const isVideo = category === 'video';
-  const isImage = category === 'image' || (file.mime_type ? file.mime_type.startsWith('image/') : false) ||
-    /\.(png|jpe?g|webp|gif|svg|avif|bmp|ico)$/i.test(file.name);
   const fileUrl = getDownloadUrl(file.id);
-  const imagePreviewUrl = useMemo(() => {
-    if ((file.provider_id === 'gdrive' || file.provider_id?.startsWith('gdrive')) && file.storage_key && isImage) {
-      return `https://lh3.googleusercontent.com/d/${encodeURIComponent(file.storage_key)}`;
-    }
-    return fileUrl;
-  }, [file.id, file.provider_id, file.storage_key, isImage, fileUrl]);
 
   const isPdf = category === 'pdf' || file.name.toLowerCase().endsWith('.pdf');
   const isTextOrCode = category === 'code' || category === 'document' ||
@@ -90,23 +82,10 @@ export function PreviewModal({ file, onClose, onOpenFeedback }: PreviewModalProp
     // Just load existing variants once on mount.
   }, [loadVariants]);
 
-  const isGDriveVideo =
-    isVideo &&
-    (file.provider_id === 'gdrive' || file.provider_id?.startsWith('gdrive')) &&
-    !!file.storage_key;
-
-  const gdriveEmbedUrl = useMemo(() => {
-    if (!isGDriveVideo || !file.storage_key) return null;
-    return `https://drive.google.com/file/d/${encodeURIComponent(file.storage_key)}/preview`;
-  }, [isGDriveVideo, file.storage_key]);
-
-  const [useGDrivePlayer, setUseGDrivePlayer] = useState(false);
-
   // Sync activeUrl and activeResolution when file prop changes
   useEffect(() => {
     setActiveUrl(getDownloadUrl(file.id));
     setActiveResolution('Original');
-    setUseGDrivePlayer(false);
   }, [file.id]);
 
   const handleSelectResolution = useCallback((res: string, targetUrl?: string) => {
@@ -187,29 +166,6 @@ export function PreviewModal({ file, onClose, onOpenFeedback }: PreviewModalProp
               {file.name}
             </div>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexShrink: 0 }}>
-              {isGDriveVideo && (
-                <button
-                  type="button"
-                  onClick={() => setUseGDrivePlayer((p) => !p)}
-                  style={{
-                    background: useGDrivePlayer ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(56, 189, 248, 0.35)',
-                    color: useGDrivePlayer ? '#38bdf8' : '#e2e8f0',
-                    padding: '4px 10px',
-                    borderRadius: 6,
-                    fontSize: 12,
-                    fontWeight: 500,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                  }}
-                  title={useGDrivePlayer ? 'Beralih ke Player Kustom' : 'Putar via Pemutar Streaming Alternatif (Streaming multi-resolusi otomatis & dukungan MKV)'}
-                >
-                  {useGDrivePlayer ? 'Player Kustom' : 'Pemutar Streaming'}
-                </button>
-              )}
               <a
                 href={isVideo ? activeUrl : getDownloadUrl(file.id, true)}
                 download={file.name}
@@ -221,14 +177,14 @@ export function PreviewModal({ file, onClose, onOpenFeedback }: PreviewModalProp
                 <Download size={20} />
               </a>
               <a
-                href={isVideo ? activeUrl : (isImage ? imagePreviewUrl : getDownloadUrl(file.id))}
+                href={isVideo ? activeUrl : fileUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="cv-desktop-only"
                 style={{ color: '#cbd5e1', transition: 'color 0.2s', display: 'flex', alignItems: 'center' }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = '#38bdf8')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = '#cbd5e1')}
-                title="Open in new tab / VLC"
+                title="Buka di tab baru"
               >
                 <ExternalLink size={20} />
               </a>
@@ -278,49 +234,21 @@ export function PreviewModal({ file, onClose, onOpenFeedback }: PreviewModalProp
           )}
 
           {isVideo ? (
-            useGDrivePlayer && gdriveEmbedUrl ? (
-              <div
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: '#000000',
-                  paddingTop: isVideoFullscreen ? 0 : 48,
-                }}
-              >
-                <iframe
-                  src={gdriveEmbedUrl}
-                  title={file.name}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    minHeight: '75vh',
-                    border: 'none',
-                  }}
-                  allow="autoplay; encrypted-media; fullscreen"
-                  allowFullScreen
-                />
-              </div>
-            ) : (
-              <VideoPlayer
-                url={activeUrl}
-                fileName={file.name}
-                fileSize={file.size_bytes}
-                mimeType={file.mime_type}
-                fileId={file.id}
-                variants={variants}
-                currentResolution={activeResolution}
-                onSelectResolution={handleSelectResolution}
-                onClose={onClose}
-                isMinimized={isMinimized}
-                onToggleMinimize={setIsMinimized}
-                onFullscreenChange={setIsVideoFullscreen}
-                onSwitchToGDrivePlayer={isGDriveVideo ? () => setUseGDrivePlayer(true) : undefined}
-                onReportIssue={onOpenFeedback ? (err) => onOpenFeedback({ file, error: err, category: 'media' }) : undefined}
-              />
-            )
+            <VideoPlayer
+              url={activeUrl}
+              fileName={file.name}
+              fileSize={file.size_bytes}
+              mimeType={file.mime_type}
+              fileId={file.id}
+              variants={variants}
+              currentResolution={activeResolution}
+              onSelectResolution={handleSelectResolution}
+              onClose={onClose}
+              isMinimized={isMinimized}
+              onToggleMinimize={setIsMinimized}
+              onFullscreenChange={setIsVideoFullscreen}
+              onReportIssue={onOpenFeedback ? (err) => onOpenFeedback({ file, error: err, category: 'media' }) : undefined}
+            />
           ) : isPdf ? (
             <div style={{ width: '92%', maxWidth: '1100px', height: '85vh', borderRadius: 16, overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.15)' }}>
               <iframe
@@ -419,7 +347,7 @@ export function PreviewModal({ file, onClose, onOpenFeedback }: PreviewModalProp
               }}
             >
               <img
-                src={imagePreviewUrl}
+                src={fileUrl}
                 alt={file.name}
                 style={{
                   maxWidth: '100%',

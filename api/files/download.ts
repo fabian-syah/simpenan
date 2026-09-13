@@ -40,6 +40,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           if (isImage) {
             if (originalFile.provider_id === 'gdrive' || originalFile.provider_id?.startsWith('gdrive')) {
+              try {
+                const thumbRes = await fetch(`https://lh3.googleusercontent.com/d/${encodeURIComponent(originalFile.storage_key)}=s400`);
+                if (thumbRes.ok && thumbRes.body) {
+                  res.writeHead(200, {
+                    'Content-Type': thumbRes.headers.get('content-type') || 'image/jpeg',
+                    'Content-Length': thumbRes.headers.get('content-length') || '',
+                    'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+                    'Access-Control-Allow-Origin': '*',
+                  });
+                  const { Readable } = await import('stream');
+                  // @ts-ignore
+                  return Readable.fromWeb(thumbRes.body).pipe(res);
+                }
+              } catch (thumbErr) {
+                console.warn('Original image thumbnail proxy error:', thumbErr);
+              }
               res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
               return res.redirect(302, `https://lh3.googleusercontent.com/d/${encodeURIComponent(originalFile.storage_key)}=s400`);
             }
@@ -120,6 +136,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (thumb.provider_id === 'gdrive' || thumb.provider_id?.startsWith('gdrive')) {
+        try {
+          const thumbRes = await fetch(`https://lh3.googleusercontent.com/d/${encodeURIComponent(thumb.storage_key)}=s400`);
+          if (thumbRes.ok && thumbRes.body) {
+            res.writeHead(200, {
+              'Content-Type': thumbRes.headers.get('content-type') || 'image/jpeg',
+              'Content-Length': thumbRes.headers.get('content-length') || '',
+              'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+              'Access-Control-Allow-Origin': '*',
+            });
+            const { Readable } = await import('stream');
+            // @ts-ignore
+            return Readable.fromWeb(thumbRes.body).pipe(res);
+          }
+        } catch (thumbErr) {
+          console.warn('Variant thumbnail proxy error:', thumbErr);
+        }
         const directUrl = `https://lh3.googleusercontent.com/d/${encodeURIComponent(thumb.storage_key)}=s400`;
         res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
         return res.redirect(302, directUrl);
@@ -197,39 +229,63 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const isImage = file.mime_type?.startsWith('image/') ||
         /\.(png|jpe?g|webp|gif|svg|avif|bmp|ico)$/i.test(file.name);
 
-      // High-speed Google Fife CDN for images (inline rendering, CORS friendly, ultra-fast 0-300ms)
+      // 1. High-speed inline image proxy (pure Simpenan domain, zero Google URLs exposed)
       if (isImage && !isDownload) {
-        res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
-        return res.redirect(302, `https://lh3.googleusercontent.com/d/${encodeURIComponent(file.storage_key)}`);
-      }
-
-      const gdriveDirectUrl = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(file.storage_key)}&export=download&confirm=t`;
-
-      // Handle Range requests for video/audio seeking (removes CORP same-site restriction)
-      const rangeHeader = req.headers.range;
-      if (rangeHeader && !isDownload) {
         try {
-          const gdriveRes = await fetch(gdriveDirectUrl, {
-            headers: { Range: rangeHeader },
-          });
-
-          res.writeHead(gdriveRes.status, {
-            'Content-Range': gdriveRes.headers.get('content-range') || '',
-            'Accept-Ranges': 'bytes',
-            'Content-Length': gdriveRes.headers.get('content-length') || '',
-            'Content-Type': file.mime_type || gdriveRes.headers.get('content-type') || 'application/octet-stream',
-            'Access-Control-Allow-Origin': '*',
-            'Cache-Control': 'public, max-age=3600',
-          });
-
-          if (gdriveRes.body) {
+          const imgRes = await fetch(`https://lh3.googleusercontent.com/d/${encodeURIComponent(file.storage_key)}`);
+          if (imgRes.ok && imgRes.body) {
+            res.writeHead(200, {
+              'Content-Type': file.mime_type || imgRes.headers.get('content-type') || 'image/png',
+              'Content-Length': imgRes.headers.get('content-length') || '',
+              'Content-Disposition': `inline; filename="${encodeURIComponent(file.name)}"`,
+              'Access-Control-Allow-Origin': '*',
+              'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+            });
             const { Readable } = await import('stream');
             // @ts-ignore
-            return Readable.fromWeb(gdriveRes.body).pipe(res);
+            return Readable.fromWeb(imgRes.body).pipe(res);
           }
-        } catch (streamErr) {
-          console.error('GDrive stream proxy error:', streamErr);
+        } catch (imgErr) {
+          console.error('GDrive image stream proxy error:', imgErr);
         }
+      }
+
+      // 2. Video / audio / documents / binaries streaming and downloads
+      const gdriveDirectUrl = `https://drive.usercontent.google.com/download?id=${encodeURIComponent(file.storage_key)}&export=download&confirm=t`;
+      const rangeHeader = req.headers.range;
+      const headers: Record<string, string> = {};
+      if (rangeHeader && !isDownload) headers['Range'] = rangeHeader;
+
+      try {
+        const gdriveRes = await fetch(gdriveDirectUrl, { headers });
+
+        if ((gdriveRes.status === 200 || gdriveRes.status === 206) && gdriveRes.body) {
+          const disposition = isDownload
+            ? `attachment; filename="${encodeURIComponent(file.name)}"`
+            : `inline; filename="${encodeURIComponent(file.name)}"`;
+
+          const responseHeaders: Record<string, string> = {
+            'Content-Type': file.mime_type || gdriveRes.headers.get('content-type') || 'application/octet-stream',
+            'Content-Disposition': disposition,
+            'Accept-Ranges': 'bytes',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': isImage ? 'public, max-age=86400, s-maxage=86400' : 'public, max-age=3600',
+          };
+
+          const cl = gdriveRes.headers.get('content-length');
+          if (cl) responseHeaders['Content-Length'] = cl;
+
+          const cr = gdriveRes.headers.get('content-range');
+          if (cr) responseHeaders['Content-Range'] = cr;
+
+          res.writeHead(gdriveRes.status, responseHeaders);
+
+          const { Readable } = await import('stream');
+          // @ts-ignore
+          return Readable.fromWeb(gdriveRes.body).pipe(res);
+        }
+      } catch (streamErr) {
+        console.error('GDrive stream proxy error:', streamErr);
       }
 
       res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
