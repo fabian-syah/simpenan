@@ -168,8 +168,8 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
         <div className="cv-upgrade-header">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <Sparkles size={18} color="#38bdf8" />
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f8fafc' }}>
+              <Sparkles size={18} color="var(--cv-accent)" />
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--cv-text-primary)' }}>
                 Upgrade Kapasitas Simpenan Cloud
               </h3>
               {userQuota && (
@@ -179,8 +179,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                     fontWeight: 700,
                     padding: '2px 8px',
                     borderRadius: 99,
-                    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-                    color: '#38bdf8',
+                    backgroundColor: 'var(--cv-accent-muted)',
+                    color: 'var(--cv-accent)',
+                    border: '1px solid var(--cv-border-hover)',
                     textTransform: 'uppercase',
                   }}
                 >
@@ -188,7 +189,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 </span>
               )}
             </div>
-            <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#94a3b8' }}>
+            <p style={{ margin: '4px 0 0', fontSize: 11.5, color: 'var(--cv-text-secondary)' }}>
               Pilih paket sesuai kebutuhan penyimpanan dan batas ukuran file Anda
             </p>
           </div>
@@ -197,7 +198,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#64748b',
+              color: 'var(--cv-text-tertiary)',
               cursor: 'pointer',
               padding: 4,
             }}
@@ -372,16 +373,16 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                         padding: 14,
                         borderRadius: 12,
                         backgroundColor: isTestingCurrent
-                          ? 'rgba(15, 23, 42, 0.6)'
+                          ? 'var(--cv-bg-secondary)'
                           : selectedTier === 'testing'
                           ? 'rgba(16, 185, 129, 0.12)'
-                          : '#070b14',
+                          : 'var(--cv-bg-tertiary)',
                         border: `2px solid ${
                           isTestingCurrent
                             ? 'rgba(16, 185, 129, 0.3)'
                             : selectedTier === 'testing'
                             ? '#10b981'
-                            : '#1e293b'
+                            : 'var(--cv-border)'
                         }`,
                         cursor: isTestingCurrent ? 'not-allowed' : 'pointer',
                         opacity: isTestingCurrent ? 0.75 : 1,
@@ -395,7 +396,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                     >
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: isTestingCurrent ? '#94a3b8' : '#f8fafc' }}>
+                          <h4 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: isTestingCurrent ? 'var(--cv-text-tertiary)' : 'var(--cv-text-primary)' }}>
                             Paket Testing Sandbox (Uji Coba QRIS)
                           </h4>
                           <span style={{ fontSize: 9.5, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: '#10b981', color: '#0f172a' }}>
@@ -418,17 +419,17 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                             </span>
                           )}
                         </div>
-                        <p style={{ margin: '4px 0 0', fontSize: 11.5, color: isTestingCurrent ? '#64748b' : '#94a3b8' }}>
+                        <p style={{ margin: '4px 0 0', fontSize: 11.5, color: isTestingCurrent ? 'var(--cv-text-tertiary)' : 'var(--cv-text-secondary)' }}>
                           {isTestingCurrent
                             ? 'Paket uji coba ini sedang aktif di akun Anda (5 GB Lifetime). Pilih paket Founder atau Pro di bawah untuk upgrade kuota lebih besar.'
                             : 'Kuota 5 GB Lifetime • Uji coba transaksi real-time Paywuz hanya Rp 1.000'}
                         </p>
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <div style={{ fontSize: 17, fontWeight: 800, color: isTestingCurrent ? '#64748b' : '#10b981' }}>
+                        <div style={{ fontSize: 17, fontWeight: 800, color: isTestingCurrent ? 'var(--cv-text-tertiary)' : '#10b981' }}>
                           Rp 1.000
                         </div>
-                        <div style={{ fontSize: 10, color: '#64748b' }}>
+                        <div style={{ fontSize: 10, color: 'var(--cv-text-tertiary)' }}>
                           {isTestingCurrent ? 'Sudah Aktif' : 'Bayar 1x'}
                         </div>
                       </div>
@@ -444,16 +445,16 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                         padding: '16px 14px',
                         borderRadius: 12,
                         backgroundColor: isFounderCurrent
-                          ? 'rgba(15, 23, 42, 0.6)'
+                          ? 'var(--cv-bg-secondary)'
                           : selectedTier === 'founder'
                           ? 'rgba(14, 165, 233, 0.12)'
-                          : '#070b14',
+                          : 'var(--cv-bg-tertiary)',
                         border: `2px solid ${
                           isFounderCurrent
                             ? 'rgba(14, 165, 233, 0.3)'
                             : selectedTier === 'founder'
                             ? '#0ea5e9'
-                            : '#334155'
+                            : 'var(--cv-border)'
                         }`,
                         cursor: isFounderCurrent ? 'not-allowed' : 'pointer',
                         opacity: isFounderCurrent ? 0.75 : 1,
@@ -480,33 +481,33 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
                         <div>
-                          <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: isFounderCurrent ? '#94a3b8' : '#f8fafc', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: isFounderCurrent ? 'var(--cv-text-tertiary)' : 'var(--cv-text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span>Founder's Edition (Lifetime)</span>
                             <Zap size={14} color="#f59e0b" fill="#f59e0b" />
                           </h4>
-                          <p style={{ margin: '4px 0 0', fontSize: 11.5, color: isFounderCurrent ? '#64748b' : '#94a3b8' }}>
+                          <p style={{ margin: '4px 0 0', fontSize: 11.5, color: isFounderCurrent ? 'var(--cv-text-tertiary)' : 'var(--cv-text-secondary)' }}>
                             {isFounderCurrent
                               ? 'Akun Anda telah memiliki akses Founder 50 GB seumur hidup tanpa biaya langganan.'
                               : 'Bayar sekali untuk seumur hidup tanpa biaya langganan bulanan.'}
                           </p>
                         </div>
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                          <div style={{ fontSize: 19, fontWeight: 800, color: isFounderCurrent ? '#64748b' : '#38bdf8' }}>Rp 99.000</div>
-                          <div style={{ fontSize: 10.5, color: '#64748b' }}>{isFounderCurrent ? 'Sudah Aktif' : 'Bayar 1x (Seumur Hidup)'}</div>
+                          <div style={{ fontSize: 19, fontWeight: 800, color: isFounderCurrent ? 'var(--cv-text-tertiary)' : 'var(--cv-accent)' }}>Rp 99.000</div>
+                          <div style={{ fontSize: 10.5, color: 'var(--cv-text-tertiary)' }}>{isFounderCurrent ? 'Sudah Aktif' : 'Bayar 1x (Seumur Hidup)'}</div>
                         </div>
                       </div>
 
-                      <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 11.5, color: isFounderCurrent ? '#64748b' : '#cbd5e1' }}>
+                      <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 11.5, color: isFounderCurrent ? 'var(--cv-text-tertiary)' : 'var(--cv-text-secondary)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <Check size={14} color={isFounderCurrent ? '#64748b' : '#38bdf8'} />
+                          <Check size={14} color={isFounderCurrent ? 'var(--cv-text-tertiary)' : 'var(--cv-accent)'} />
                           <span>Kuota <strong>50 GB</strong></span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <Check size={14} color={isFounderCurrent ? '#64748b' : '#38bdf8'} />
+                          <Check size={14} color={isFounderCurrent ? 'var(--cv-text-tertiary)' : 'var(--cv-accent)'} />
                           <span>Maksimal <strong>5 GB / file</strong></span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <Check size={14} color={isFounderCurrent ? '#64748b' : '#38bdf8'} />
+                          <Check size={14} color={isFounderCurrent ? 'var(--cv-text-tertiary)' : 'var(--cv-accent)'} />
                           <span>Multi-Resolusi Video & Subtitle</span>
                         </div>
                       </div>
@@ -523,25 +524,25 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                           padding: 16,
                           borderRadius: 12,
                           backgroundColor: isProCurrent
-                            ? 'rgba(15, 23, 42, 0.6)'
+                            ? 'var(--cv-bg-secondary)'
                             : selectedTier === 'pro'
                             ? 'rgba(168, 85, 247, 0.12)'
-                            : '#070b14',
+                            : 'var(--cv-bg-tertiary)',
                           border: `1.5px solid ${
                             isProCurrent
                               ? 'rgba(168, 85, 247, 0.3)'
                               : selectedTier === 'pro'
                               ? '#a855f7'
-                              : '#1e293b'
+                              : 'var(--cv-border)'
                           }`,
                           cursor: isProCurrent ? 'not-allowed' : 'pointer',
                           opacity: isProCurrent ? 0.75 : 1,
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 4 }}>
-                          <h5 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: isProCurrent ? '#94a3b8' : '#f8fafc' }}>Paket Pro</h5>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: isProCurrent ? '#64748b' : '#c084fc' }}>
-                            {isProCurrent ? 'Aktif' : 'Rp 15.000'}<span style={{ fontSize: 10, color: '#64748b' }}>{isProCurrent ? '' : '/bln'}</span>
+                          <h5 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: isProCurrent ? 'var(--cv-text-tertiary)' : 'var(--cv-text-primary)' }}>Paket Pro</h5>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: isProCurrent ? 'var(--cv-text-tertiary)' : '#c084fc' }}>
+                            {isProCurrent ? 'Aktif' : 'Rp 15.000'}<span style={{ fontSize: 10, color: 'var(--cv-text-tertiary)' }}>{isProCurrent ? '' : '/bln'}</span>
                           </span>
                         </div>
                         {isProCurrent && (
@@ -551,7 +552,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                             </span>
                           </div>
                         )}
-                        <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: isProCurrent ? '#64748b' : '#94a3b8', lineHeight: 1.6 }}>
+                        <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: isProCurrent ? 'var(--cv-text-tertiary)' : 'var(--cv-text-secondary)', lineHeight: 1.6 }}>
                           <li>Kuota 50 GB</li>
                           <li>Batas upload 5 GB / file</li>
                           <li>Langganan bulanan / tahunan</li>
@@ -567,25 +568,25 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                           padding: 16,
                           borderRadius: 12,
                           backgroundColor: isCreatorCurrent
-                            ? 'rgba(15, 23, 42, 0.6)'
+                            ? 'var(--cv-bg-secondary)'
                             : selectedTier === 'creator'
                             ? 'rgba(234, 179, 8, 0.12)'
-                            : '#070b14',
+                            : 'var(--cv-bg-tertiary)',
                           border: `1.5px solid ${
                             isCreatorCurrent
                               ? 'rgba(234, 179, 8, 0.3)'
                               : selectedTier === 'creator'
                               ? '#eab308'
-                              : '#1e293b'
+                              : 'var(--cv-border)'
                           }`,
                           cursor: isCreatorCurrent ? 'not-allowed' : 'pointer',
                           opacity: isCreatorCurrent ? 0.75 : 1,
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 4 }}>
-                          <h5 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: isCreatorCurrent ? '#94a3b8' : '#f8fafc' }}>Paket Creator</h5>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: isCreatorCurrent ? '#64748b' : '#facc15' }}>
-                            {isCreatorCurrent ? 'Aktif' : 'Rp 45.000'}<span style={{ fontSize: 10, color: '#64748b' }}>{isCreatorCurrent ? '' : '/bln'}</span>
+                          <h5 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: isCreatorCurrent ? 'var(--cv-text-tertiary)' : 'var(--cv-text-primary)' }}>Paket Creator</h5>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: isCreatorCurrent ? 'var(--cv-text-tertiary)' : '#facc15' }}>
+                            {isCreatorCurrent ? 'Aktif' : 'Rp 45.000'}<span style={{ fontSize: 10, color: 'var(--cv-text-tertiary)' }}>{isCreatorCurrent ? '' : '/bln'}</span>
                           </span>
                         </div>
                         {isCreatorCurrent && (
@@ -595,7 +596,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                             </span>
                           </div>
                         )}
-                        <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: isCreatorCurrent ? '#64748b' : '#94a3b8', lineHeight: 1.6 }}>
+                        <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: isCreatorCurrent ? 'var(--cv-text-tertiary)' : 'var(--cv-text-secondary)', lineHeight: 1.6 }}>
                           <li>Kuota 200 GB</li>
                           <li>Batas upload 20 GB / file</li>
                           <li>Untuk editor & freelancer</li>
@@ -611,9 +612,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                       style={{
                         width: '100%',
                         padding: '13px',
-                        backgroundColor: isSelectedCurrent ? '#1e293b' : '#0284c7',
-                        color: isSelectedCurrent ? '#94a3b8' : '#ffffff',
-                        border: isSelectedCurrent ? '1px solid #334155' : 'none',
+                        backgroundColor: isSelectedCurrent ? 'var(--cv-bg-secondary)' : '#0284c7',
+                        color: isSelectedCurrent ? 'var(--cv-text-tertiary)' : '#ffffff',
+                        border: isSelectedCurrent ? '1px solid var(--cv-border)' : 'none',
                         borderRadius: 10,
                         fontSize: 14,
                         fontWeight: 700,

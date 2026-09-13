@@ -103,7 +103,7 @@ export function Header({
         </nav>
       </div>
 
-      <div className="cv-header-right" style={{ flex: 1, justifyContent: 'flex-end', gap: 10 }}>
+      <div className="cv-header-right" style={{ flex: 1, justifyContent: 'flex-end' }}>
         {/* Search */}
         <div className="cv-search-wrapper">
           <Search size={16} className="cv-search-icon" />
@@ -194,37 +194,22 @@ export function Header({
           </button>
         )}
 
-        {/* Upgrade Button - Visible on all devices */}
+        {/* Upgrade Button - Responsive Pill */}
         {onOpenUpgrade && (
           <button
             type="button"
             onClick={onOpenUpgrade}
-            className="cv-btn"
-            style={{
-              padding: '6px 11px',
-              borderRadius: 8,
-              background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.2), rgba(14, 165, 233, 0.3))',
-              border: '1px solid #0284c7',
-              color: '#38bdf8',
-              fontSize: 12,
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-              flexShrink: 0,
-            }}
+            className="cv-header-upgrade-btn"
             title="Upgrade Kapasitas Penyimpanan"
           >
-            <Zap size={14} fill="#38bdf8" />
-            <span>Upgrade</span>
+            <Zap size={14} fill="currentColor" />
+            <span className="cv-header-upgrade-text">Upgrade</span>
           </button>
         )}
 
         {/* User Account / Auth */}
         {user ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div
               className="cv-desktop-only"
               style={{
@@ -232,14 +217,14 @@ export function Header({
                 alignItems: 'center',
                 gap: 6,
                 padding: '4px 10px',
-                backgroundColor: '#0f172a',
-                border: '1px solid #1e293b',
+                backgroundColor: 'var(--cv-bg-tertiary)',
+                border: '1px solid var(--cv-border)',
                 borderRadius: 8,
                 fontSize: 12,
-                color: '#cbd5e1',
+                color: 'var(--cv-text-primary)',
               }}
             >
-              <User size={13} color="#94a3b8" />
+              <User size={13} style={{ color: 'var(--cv-text-secondary)' }} />
               <span style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user.email?.split('@')[0]}
               </span>
@@ -251,8 +236,9 @@ export function Header({
                     textTransform: 'uppercase',
                     padding: '2px 6px',
                     borderRadius: 4,
-                    backgroundColor: userQuota.tier === 'founder' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(148, 163, 184, 0.2)',
-                    color: userQuota.tier === 'founder' ? '#38bdf8' : '#cbd5e1',
+                    backgroundColor: userQuota.tier === 'founder' ? 'var(--cv-accent-muted)' : 'var(--cv-bg-secondary)',
+                    color: userQuota.tier === 'founder' ? 'var(--cv-accent)' : 'var(--cv-text-secondary)',
+                    border: '1px solid var(--cv-border)',
                   }}
                 >
                   {userQuota.tier === 'founder' ? 'Lifetime' : userQuota.tier}
@@ -264,21 +250,10 @@ export function Header({
               <button
                 type="button"
                 onClick={onLogout}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: 8,
-                  backgroundColor: 'transparent',
-                  border: '1px solid #334155',
-                  color: '#94a3b8',
-                  fontSize: 12,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  cursor: 'pointer',
-                }}
+                className="cv-header-logout-btn"
                 title="Keluar dari Akun"
               >
-                <LogOut size={13} />
+                <LogOut size={14} />
                 <span className="cv-desktop-only">Keluar</span>
               </button>
             )}

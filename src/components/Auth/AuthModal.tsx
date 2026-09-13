@@ -122,7 +122,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <div
           style={{
             padding: '16px 20px',
-            borderBottom: '1px solid #1e293b',
+            borderBottom: '1px solid var(--cv-border)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -130,10 +130,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           }}
         >
           <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f8fafc' }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--cv-text-primary)' }}>
               {mode === 'login' ? 'Masuk ke Simpenan' : 'Daftar Akun Baru'}
             </h3>
-            <p style={{ margin: '3px 0 0', fontSize: 11.5, color: '#94a3b8' }}>
+            <p style={{ margin: '3px 0 0', fontSize: 11.5, color: 'var(--cv-text-secondary)' }}>
               {mode === 'login'
                 ? 'Akses penyimpanan cloud pribadi Anda'
                 : 'Dapatkan kuota cloud 2 GB gratis selamanya'}
@@ -144,7 +144,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#64748b',
+              color: 'var(--cv-text-tertiary)',
               cursor: 'pointer',
               padding: 4,
             }}
@@ -193,11 +193,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           {/* Email */}
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#cbd5e1', marginBottom: 6 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--cv-text-primary)', marginBottom: 6 }}>
               Alamat Email
             </label>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <Mail size={16} style={{ position: 'absolute', left: 12, color: '#64748b' }} />
+              <Mail size={16} style={{ position: 'absolute', left: 12, color: 'var(--cv-text-tertiary)' }} />
               <input
                 type="email"
                 required
@@ -206,11 +206,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 placeholder="nama@email.com"
                 style={{
                   width: '100%',
-                  backgroundColor: '#070b14',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--cv-bg-tertiary)',
+                  border: '1px solid var(--cv-border)',
                   borderRadius: 8,
                   padding: '10px 12px 10px 38px',
-                  color: '#f8fafc',
+                  color: 'var(--cv-text-primary)',
                   fontSize: 14,
                   outline: 'none',
                 }}
@@ -220,11 +220,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           {/* Password */}
           <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#cbd5e1', marginBottom: 6 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--cv-text-primary)', marginBottom: 6 }}>
               Kata Sandi
             </label>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <Lock size={16} style={{ position: 'absolute', left: 12, color: '#64748b' }} />
+              <Lock size={16} style={{ position: 'absolute', left: 12, color: 'var(--cv-text-tertiary)' }} />
               <input
                 type="password"
                 required
@@ -234,11 +234,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 placeholder="Minimal 6 karakter"
                 style={{
                   width: '100%',
-                  backgroundColor: '#070b14',
-                  border: '1px solid #334155',
+                  backgroundColor: 'var(--cv-bg-tertiary)',
+                  border: '1px solid var(--cv-border)',
                   borderRadius: 8,
                   padding: '10px 12px 10px 38px',
-                  color: '#f8fafc',
+                  color: 'var(--cv-text-primary)',
                   fontSize: 14,
                   outline: 'none',
                 }}
@@ -287,11 +287,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <div
           style={{
             padding: '16px 24px',
-            backgroundColor: '#070b14',
-            borderTop: '1px solid #1e293b',
+            backgroundColor: 'var(--cv-bg-secondary)',
+            borderTop: '1px solid var(--cv-border)',
             textAlign: 'center',
             fontSize: 13,
-            color: '#94a3b8',
+            color: 'var(--cv-text-secondary)',
           }}
         >
           {mode === 'login' ? (
@@ -307,7 +307,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#38bdf8',
+                  color: 'var(--cv-accent)',
                   fontWeight: 600,
                   cursor: 'pointer',
                 }}
@@ -328,12 +328,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#38bdf8',
+                  color: 'var(--cv-accent)',
                   fontWeight: 600,
                   cursor: 'pointer',
                 }}
               >
-                Masuk di sini
+                Masuk ke akun
               </button>
             </>
           )}
