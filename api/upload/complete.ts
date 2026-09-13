@@ -111,6 +111,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     })());
 
+    // Update the user's personal used_bytes in profiles table
+    if (file.user_id) {
+      postTasks.push((async () => {
+        try {
+          const { data: userFiles } = await supabaseAdmin
+            .from('files')
+            .select('size_bytes')
+            .eq('user_id', file.user_id)
+            .eq('upload_status', 'complete')
+            .eq('is_trashed', false);
+
+          const totalUserUsed = (userFiles || []).reduce(
+            (acc: number, f: any) => acc + (Number(f.size_bytes) || 0),
+            0
+          );
+
+          await supabaseAdmin
+            .from('profiles')
+            .update({ used_bytes: totalUserUsed, updated_at: new Date().toISOString() })
+            .eq('id', file.user_id);
+        } catch (profileErr) {
+          console.warn('Profile used_bytes update error:', profileErr);
+        }
+      })());
+    }
+
     await Promise.allSettled(postTasks);
 
     // Video transcoding via GitHub Actions has been DISABLED to comply with

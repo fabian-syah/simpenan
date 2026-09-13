@@ -29,6 +29,11 @@ interface LayoutProps {
   onMoveFiles?: (fileIds: string[], targetPath: string) => Promise<void>;
   onRefresh?: () => Promise<void> | void;
   onOpenFeedback?: () => void;
+  user?: any | null;
+  userQuota?: any | null;
+  onOpenAuth?: () => void;
+  onOpenUpgrade?: () => void;
+  onLogout?: () => void;
 }
 
 export function Layout({
@@ -53,6 +58,11 @@ export function Layout({
   onMoveFiles,
   onRefresh,
   onOpenFeedback,
+  user,
+  userQuota,
+  onOpenAuth,
+  onOpenUpgrade,
+  onLogout,
 }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const contentRef = useRef<HTMLElement>(null);
@@ -216,6 +226,11 @@ export function Layout({
           onOpenManageStorage={onOpenManageStorage}
           onMoveFiles={onMoveFiles}
           onOpenFeedback={onOpenFeedback}
+          user={user}
+          userQuota={userQuota}
+          onOpenAuth={onOpenAuth}
+          onOpenUpgrade={onOpenUpgrade}
+          onLogout={onLogout}
         />
         <main
           ref={contentRef}

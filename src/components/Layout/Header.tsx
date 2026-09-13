@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Search, LayoutGrid, List, Menu, ChevronRight, Sun, Moon, Monitor, Layers, HardDrive, MessageSquarePlus } from 'lucide-react';
 import type { Theme } from '../../hooks/useTheme';
-import type { StorageProvider, TargetStorageOption } from '../../types';
+import type { StorageProvider, TargetStorageOption, UserQuota } from '../../types';
+import { User, LogIn, LogOut, Zap } from 'lucide-react';
 
 interface HeaderProps {
   breadcrumbs: { name: string; path: string }[];
@@ -19,6 +20,11 @@ interface HeaderProps {
   onOpenManageStorage?: () => void;
   onMoveFiles?: (fileIds: string[], targetPath: string) => Promise<void>;
   onOpenFeedback?: () => void;
+  user?: any | null;
+  userQuota?: UserQuota | null;
+  onOpenAuth?: () => void;
+  onOpenUpgrade?: () => void;
+  onLogout?: () => void;
 }
 
 export function Header({
@@ -37,6 +43,11 @@ export function Header({
   onOpenManageStorage,
   onMoveFiles,
   onOpenFeedback,
+  user,
+  userQuota,
+  onOpenAuth,
+  onOpenUpgrade,
+  onLogout,
 }: HeaderProps) {
   const [dragOverCrumbPath, setDragOverCrumbPath] = useState<string | null>(null);
 
@@ -240,6 +251,119 @@ export function Header({
             <MessageSquarePlus size={14} />
             <span>Feedback</span>
           </button>
+        )}
+
+        {/* Upgrade Button */}
+        {onOpenUpgrade && (
+          <button
+            type="button"
+            onClick={onOpenUpgrade}
+            className="cv-btn cv-desktop-only"
+            style={{
+              padding: '6px 12px',
+              borderRadius: 8,
+              background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.2), rgba(14, 165, 233, 0.3))',
+              border: '1px solid #0284c7',
+              color: '#38bdf8',
+              fontSize: 12,
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="Upgrade Kapasitas Penyimpanan"
+          >
+            <Zap size={14} fill="#38bdf8" />
+            <span>Upgrade</span>
+          </button>
+        )}
+
+        {/* User Account / Auth */}
+        {user ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div
+              className="cv-desktop-only"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '4px 10px',
+                backgroundColor: '#0f172a',
+                border: '1px solid #1e293b',
+                borderRadius: 8,
+                fontSize: 12,
+                color: '#cbd5e1',
+              }}
+            >
+              <User size={13} color="#94a3b8" />
+              <span style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user.email?.split('@')[0]}
+              </span>
+              {userQuota && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    backgroundColor: userQuota.tier === 'founder' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(148, 163, 184, 0.2)',
+                    color: userQuota.tier === 'founder' ? '#38bdf8' : '#cbd5e1',
+                  }}
+                >
+                  {userQuota.tier === 'founder' ? 'Lifetime' : userQuota.tier}
+                </span>
+              )}
+            </div>
+
+            {onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 8,
+                  backgroundColor: 'transparent',
+                  border: '1px solid #334155',
+                  color: '#94a3b8',
+                  fontSize: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  cursor: 'pointer',
+                }}
+                title="Keluar dari Akun"
+              >
+                <LogOut size={13} />
+                <span className="cv-desktop-only">Keluar</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          onOpenAuth && (
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 8,
+                backgroundColor: '#0284c7',
+                border: 'none',
+                color: '#ffffff',
+                fontSize: 12,
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                cursor: 'pointer',
+              }}
+            >
+              <LogIn size={14} />
+              <span>Masuk / Daftar</span>
+            </button>
+          )
         )}
       </div>
     </header>

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabaseAdmin } from '../_lib/supabase.js';
+import { supabaseAdmin, getAuthUser } from '../_lib/supabase.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -11,15 +11,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'fileId and newName are required' });
     }
 
+    const authUser = await getAuthUser(req);
+
     // Get current file to check parent path
     const { data: file, error: fetchErr } = await supabaseAdmin
       .from('files')
-      .select('parent_path')
+      .select('parent_path, user_id')
       .eq('id', fileId)
       .single();
 
     if (fetchErr || !file) {
       return res.status(404).json({ error: 'File not found' });
+    }
+
+    if (authUser && file.user_id && file.user_id !== authUser.id) {
+      return res.status(403).json({ error: 'Unauthorized to rename this file' });
     }
 
     const newPath = file.parent_path === '/' 

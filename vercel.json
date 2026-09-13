@@ -5,7 +5,9 @@
   "rewrites": [
     { "source": "/api/files/thumbnail", "destination": "/api/files/download?thumb=true" },
     { "source": "/api/files/variants", "destination": "/api/files/list?variants_only=true" },
-    { "source": "/api/files/get", "destination": "/api/files/list" }
+    { "source": "/api/files/get", "destination": "/api/files/list" },
+    { "source": "/api/storage/quota", "destination": "/api/storage?action=quota" },
+    { "source": "/api/storage/providers", "destination": "/api/storage?action=providers" }
   ],
   "headers": [
     {

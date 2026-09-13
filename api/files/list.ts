@@ -6,7 +6,7 @@
 // 3. /api/files/list?id=xxx (single file metadata + variants)
 // ============================================================
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabaseAdmin } from '../_lib/supabase.js';
+import { supabaseAdmin, getAuthUser } from '../_lib/supabase.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -65,10 +65,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const starredOnly = req.query.starred === 'true';
     const recentOnly = req.query.recent === 'true';
 
+    const authUser = await getAuthUser(req);
+
     let query = supabaseAdmin
       .from('files')
       .select('*')
       .eq('upload_status', 'complete');
+
+    if (authUser) {
+      query = query.eq('user_id', authUser.id);
+    } else {
+      query = query.is('user_id', null);
+    }
 
     if (showTrashed) {
       query = query.eq('is_trashed', true).order('updated_at', { ascending: false });

@@ -6,7 +6,7 @@
 // 3. Registers the file in the metadata database
 // ============================================================
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabaseAdmin } from '../_lib/supabase.js';
+import { supabaseAdmin, getAuthUser } from '../_lib/supabase.js';
 import {
   getPresignedUploadUrl,
   initiateMultipartUpload,
@@ -31,6 +31,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!fileName || fileSize === undefined || fileSize === null) {
       return res.status(400).json({ error: 'fileName and fileSize are required' });
+    }
+
+    // Authenticate user & verify tier quota
+    const authUser = await getAuthUser(req);
+    let userTier = 'starter';
+    let maxFileSizeBytes = 262144000; // 250 MB
+    let storageLimitBytes = 2147483648; // 2 GB
+
+    if (authUser) {
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+
+      if (profile) {
+        userTier = profile.tier || 'starter';
+        maxFileSizeBytes = profile.max_file_size_bytes || (userTier === 'creator' ? 21474836480 : userTier === 'pro' || userTier === 'founder' ? 5368709120 : 262144000);
+        storageLimitBytes = profile.storage_limit_bytes || (userTier === 'creator' ? 214748364800 : userTier === 'pro' || userTier === 'founder' ? 53687091200 : 2147483648);
+      }
+    }
+
+    // Enforce max file size per tier
+    if (fileSize > maxFileSizeBytes) {
+      const maxMB = Math.round(maxFileSizeBytes / (1024 * 1024));
+      const limitStr = maxMB >= 1024 ? `${(maxMB / 1024).toFixed(0)} GB` : `${maxMB} MB`;
+      return res.status(403).json({
+        error: 'FILE_SIZE_LIMIT_EXCEEDED',
+        tier: userTier,
+        maxFileSizeBytes,
+        message: `Batas ukuran berkas untuk akun ${userTier.toUpperCase()} adalah ${limitStr}. Ambil penawaran terbatas: Upgrade ke 50 GB Lifetime seharga Rp 99.000 untuk batas upload 5 GB per file!`,
+      });
+    }
+
+    // Check user storage limit
+    if (authUser) {
+      const { data: userFiles } = await supabaseAdmin
+        .from('files')
+        .select('size_bytes')
+        .eq('user_id', authUser.id)
+        .eq('upload_status', 'complete')
+        .eq('is_trashed', false);
+
+      const currentUserUsed = (userFiles || []).reduce((acc: number, f: any) => acc + (Number(f.size_bytes) || 0), 0);
+      if (currentUserUsed + fileSize > storageLimitBytes) {
+        return res.status(403).json({
+          error: 'STORAGE_QUOTA_EXCEEDED',
+          tier: userTier,
+          storageLimitBytes,
+          usedBytes: currentUserUsed,
+          message: 'Kapasitas penyimpanan akun Anda tidak mencukupi. Silakan upgrade paket untuk menambah kuota.',
+        });
+      }
     }
 
     // 1. Query storage providers
@@ -96,18 +149,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // If auto or requested provider not found/specified:
-    // Sort by utilization percentage ascending (least used % first)
-    // If usage ratios are similar (within 5%), alternate randomly so all 3 get actively used!
+    // User requirement: Prioritize Google Drive accounts pool (Drive 1, Drive 2, etc.)
     if (!selectedProvider) {
-      const candidates = [...eligibleProviders].sort((a: any, b: any) => {
-        const ratioA = a.used_bytes / (a.max_bytes || 1);
-        const ratioB = b.used_bytes / (b.max_bytes || 1);
-        if (Math.abs(ratioA - ratioB) < 0.05) {
-          return Math.random() - 0.5;
-        }
-        return ratioA - ratioB;
-      });
-      selectedProvider = candidates[0];
+      const gdriveCandidates = eligibleProviders.filter((p: any) => p.id.startsWith('gdrive'));
+      if (gdriveCandidates.length > 0) {
+        gdriveCandidates.sort((a: any, b: any) => {
+          const ratioA = a.used_bytes / (a.max_bytes || 1);
+          const ratioB = b.used_bytes / (b.max_bytes || 1);
+          return ratioA - ratioB;
+        });
+        selectedProvider = gdriveCandidates[0];
+      } else {
+        const candidates = [...eligibleProviders].sort((a: any, b: any) => {
+          const ratioA = a.used_bytes / (a.max_bytes || 1);
+          const ratioB = b.used_bytes / (b.max_bytes || 1);
+          if (Math.abs(ratioA - ratioB) < 0.05) {
+            return Math.random() - 0.5;
+          }
+          return ratioA - ratioB;
+        });
+        selectedProvider = candidates[0];
+      }
     }
 
     const providerId = selectedProvider.id;
@@ -123,15 +185,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 3. Register file in metadata database
     
     // Cleanup any previous stuck upload attempts for this exact path
-    await supabaseAdmin
+    let cleanupQuery = supabaseAdmin
       .from('files')
       .delete()
       .eq('path', filePath)
       .eq('upload_status', 'uploading');
 
+    if (authUser) {
+      cleanupQuery = cleanupQuery.eq('user_id', authUser.id);
+    }
+
+    await cleanupQuery;
+
     const { data: fileRecord, error: fileErr } = await supabaseAdmin
       .from('files')
       .insert({
+        user_id: authUser?.id || null,
         name: fileName,
         path: filePath,
         parent_path: parentPath,

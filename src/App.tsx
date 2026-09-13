@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Layout } from './components/Layout/Layout';
 import { FileList } from './components/FileExplorer/FileList';
 import { DropZone } from './components/Upload/DropZone';
@@ -10,8 +10,11 @@ import { ShareModal } from './components/Share/ShareModal';
 import { ManageStorageModal } from './components/Storage/ManageStorageModal';
 import { AudioPlayerBar } from './components/AudioPlayer/AudioPlayerBar';
 import { FeedbackModal } from './components/Feedback/FeedbackModal';
+import { AuthModal } from './components/Auth/AuthModal';
+import { UpgradeModal } from './components/Pricing/UpgradeModal';
 import type { FileRecord, TargetStorageOption } from './types';
 import { getDownloadUrl } from './lib/api';
+import { supabase } from './lib/supabase';
 import { useFiles } from './hooks/useFiles';
 import { useUpload } from './hooks/useUpload';
 import { useStorage } from './hooks/useStorage';
@@ -41,6 +44,11 @@ export default function App() {
   const [currentAudio, setCurrentAudio] = useState<{ file: FileRecord; url: string } | null>(null);
   const [showManageStorage, setShowManageStorage] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<string | null>(null);
   const [feedbackContext, setFeedbackContext] = useState<{
     file?: FileRecord | null;
     error?: string | null;
@@ -55,6 +63,16 @@ export default function App() {
     setFeedbackContext(ctx || { file: previewFile });
     setShowFeedbackModal(true);
   }, [previewFile]);
+
+  const handleOpenAuth = useCallback((mode: 'login' | 'register' = 'login') => {
+    setAuthModalMode(mode);
+    setShowAuthModal(true);
+  }, []);
+
+  const handleOpenUpgrade = useCallback((reason?: string) => {
+    setUpgradeReason(reason || null);
+    setShowUpgradeModal(true);
+  }, []);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,16 +96,53 @@ export default function App() {
 
   const { quota, loading: quotaLoading, fetchQuota } = useStorage();
 
+  // Auth Listener
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      invalidateCache();
+      fetchQuota();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [invalidateCache, fetchQuota]);
+
+  const handleLogout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    invalidateCache();
+    fetchQuota();
+  }, [invalidateCache, fetchQuota]);
+
+  const handleUploadError = useCallback((err: any) => {
+    if (err?.code === 'FILE_SIZE_LIMIT_EXCEEDED') {
+      handleOpenUpgrade('Ukuran berkas melebihi batas paket Starter (maks 250 MB). Upgrade ke Founder\'s Edition untuk unggah hingga 5 GB per berkas.');
+    } else if (err?.code === 'STORAGE_LIMIT_EXCEEDED') {
+      handleOpenUpgrade('Kapasitas penyimpanan akun Anda telah penuh. Upgrade ke Founder\'s Edition (50 GB Lifetime) untuk terus menyimpan berkas.');
+    }
+  }, [handleOpenUpgrade]);
+
   const {
     uploads,
     uploadFiles,
     removeUpload,
     clearCompleted,
-  } = useUpload(currentPath, targetProvider, () => {
-    // Refresh file list and quota after upload completes
-    invalidateCache();
-    fetchQuota();
-  });
+  } = useUpload(
+    currentPath,
+    targetProvider,
+    () => {
+      // Refresh file list and quota after upload completes
+      invalidateCache();
+      fetchQuota();
+    },
+    handleUploadError
+  );
 
   // Handlers
   const handleRefresh = useCallback(async () => {
@@ -161,6 +216,7 @@ export default function App() {
             quota={quota}
             loading={quotaLoading}
             onOpenManageStorage={() => setShowManageStorage(true)}
+            onOpenUpgrade={() => handleOpenUpgrade()}
           />
         }
         targetProvider={targetProvider}
@@ -170,6 +226,11 @@ export default function App() {
         onMoveFiles={moveFiles}
         onRefresh={handleRefresh}
         onOpenFeedback={() => handleOpenFeedback()}
+        user={user}
+        userQuota={quota?.user_quota}
+        onOpenAuth={() => handleOpenAuth('login')}
+        onOpenUpgrade={() => handleOpenUpgrade()}
+        onLogout={handleLogout}
       >
         <FileList
           files={files}
@@ -304,6 +365,29 @@ export default function App() {
         activeFile={feedbackContext.file}
         initialError={feedbackContext.error}
         initialCategory={feedbackContext.category}
+      />
+
+      {/* Supabase Auth Modal (Login / Register) */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        initialMode={authModalMode}
+        onAuthSuccess={() => {
+          setShowAuthModal(false);
+          invalidateCache();
+          fetchQuota();
+        }}
+      />
+
+      {/* Paywuz.id Upgrade Modal (Tiers & Limits) */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        userQuota={quota?.user_quota}
+        initialReason={upgradeReason}
+        onUpgradeSuccess={() => {
+          fetchQuota();
+        }}
       />
     </DropZone>
   );

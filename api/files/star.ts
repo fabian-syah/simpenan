@@ -3,7 +3,7 @@
 // Toggles or sets starred status for a file/folder
 // ============================================================
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabaseAdmin } from '../_lib/supabase.js';
+import { supabaseAdmin, getAuthUser } from '../_lib/supabase.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -13,19 +13,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { fileId, isStarred } = req.body;
     if (!fileId) return res.status(400).json({ error: 'fileId is required' });
 
+    const authUser = await getAuthUser(req);
+
+    // Check ownership
+    const { data: current, error: fetchErr } = await supabaseAdmin
+      .from('files')
+      .select('is_starred, user_id')
+      .eq('id', fileId)
+      .single();
+
+    if (fetchErr || !current) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    if (authUser && current.user_id && current.user_id !== authUser.id) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
     let newStatus = isStarred;
-
     if (newStatus === undefined) {
-      // Toggle
-      const { data: current, error: fetchErr } = await supabaseAdmin
-        .from('files')
-        .select('is_starred')
-        .eq('id', fileId)
-        .single();
-
-      if (fetchErr || !current) {
-        return res.status(404).json({ error: 'File not found' });
-      }
       newStatus = !current.is_starred;
     }
 

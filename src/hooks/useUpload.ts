@@ -13,7 +13,8 @@ const MAX_RETRIES = 3;
 export function useUpload(
   currentPath: string,
   targetProvider: TargetStorageOption = 'auto',
-  onUploadComplete?: () => void
+  onUploadComplete?: () => void,
+  onUploadError?: (err: any) => void
 ) {
   const [uploads, setUploads] = useState<UploadTask[]>([]);
   const uploadIdCounter = useRef(0);
@@ -303,9 +304,10 @@ export function useUpload(
         onUploadComplete?.();
       } catch (err: any) {
         updateUpload(taskId, { status: 'failed', error: err.message });
+        onUploadError?.(err);
       }
     },
-    [currentPath, updateUpload, removeUpload, onUploadComplete]
+    [currentPath, updateUpload, removeUpload, onUploadComplete, onUploadError]
   );
 
   const uploadFiles = useCallback(

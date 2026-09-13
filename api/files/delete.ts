@@ -4,7 +4,7 @@
 // cloud storage backends (Backblaze, Filebase, Supabase) and database
 // ============================================================
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabaseAdmin } from '../_lib/supabase.js';
+import { supabaseAdmin, getAuthUser } from '../_lib/supabase.js';
 import { deleteObject } from '../_lib/storage-providers.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -18,6 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!fileId) return res.status(400).json({ error: 'fileId is required' });
 
     // Fetch the target file or folder
+    const authUser = await getAuthUser(req);
     const { data: file, error: fetchErr } = await supabaseAdmin
       .from('files')
       .select('*')
@@ -27,6 +28,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Idempotent: If already deleted, return success immediately
     if (fetchErr || !file) {
       return res.status(200).json({ success: true, message: 'Already deleted' });
+    }
+
+    if (authUser && file.user_id && file.user_id !== authUser.id) {
+      return res.status(403).json({ error: 'Unauthorized to delete this file' });
     }
 
     const supaBucket = process.env.SUPA_BUCKET || 'drive-clone-supa-1';
@@ -245,6 +250,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .eq('id', provId);
       } catch (qErr) {
         console.warn('Quota sync after delete error:', qErr);
+      }
+    }
+
+    if (file.user_id) {
+      try {
+        const { data: userFiles } = await supabaseAdmin
+          .from('files')
+          .select('size_bytes')
+          .eq('user_id', file.user_id)
+          .eq('upload_status', 'complete')
+          .eq('is_trashed', false);
+
+        const totalUserBytes = (userFiles || []).reduce(
+          (acc: number, f: any) => acc + (Number(f.size_bytes) || 0),
+          0
+        );
+
+        await supabaseAdmin
+          .from('profiles')
+          .update({ used_bytes: totalUserBytes })
+          .eq('id', file.user_id);
+      } catch (profErr) {
+        console.warn('Profile used_bytes sync after delete error:', profErr);
       }
     }
 

@@ -3,7 +3,7 @@
 // Moves files or folders to a new target directory
 // ============================================================
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabaseAdmin } from '../_lib/supabase.js';
+import { supabaseAdmin, getAuthUser } from '../_lib/supabase.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -16,6 +16,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'fileIds (array) and targetPath are required' });
     }
 
+    const authUser = await getAuthUser(req);
     const cleanTargetPath = targetPath === '/' ? '/' : targetPath.replace(/\/+$/, '');
     const results: any[] = [];
 
@@ -27,6 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .single();
 
       if (fetchErr || !file) continue;
+      if (authUser && file.user_id && file.user_id !== authUser.id) continue;
 
       const oldPath = file.path;
       const newPath = cleanTargetPath === '/' ? `/${file.name}` : `${cleanTargetPath}/${file.name}`;

@@ -58,10 +58,22 @@ export interface UploadCompleteRequest {
   parts?: { partNumber: number; etag: string }[];
 }
 
+export interface UserQuota {
+  userId: string;
+  email: string;
+  tier: 'starter' | 'founder' | 'pro' | 'creator';
+  isLifetime: boolean;
+  storageLimitBytes: number;
+  maxFileSizeBytes: number;
+  usedBytes: number;
+  usedPercentage: number;
+}
+
 export interface QuotaInfo {
   providers: StorageProvider[];
   total_max_bytes: number;
   total_used_bytes: number;
+  user_quota?: UserQuota | null;
 }
 
 // Upload state for the frontend upload manager
