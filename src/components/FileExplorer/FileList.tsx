@@ -482,6 +482,7 @@ export function FileList({
             aria-label="Filter Berdasarkan Cloud Storage Provider"
           >
             <option value="all">Semua Cloud</option>
+            <option value="gdrive">Google Drive</option>
             <option value="mega">MEGA.nz</option>
             <option value="mediafire">MediaFire</option>
             <option value="backblaze">Backblaze B2</option>
@@ -1139,7 +1140,7 @@ function FileCard({
         </span>
         {file.provider_id && (
           <span className={`cv-provider-badge ${file.provider_id}`}>
-            {file.provider_id === 'mega' ? 'MEGA.nz' : file.provider_id === 'mediafire' ? 'MediaFire' : file.provider_id === 'backblaze' ? 'Backblaze' : file.provider_id === 'filebase' ? 'Filebase' : 'Supabase'}
+            {file.provider_id === 'gdrive' ? 'Google Drive' : file.provider_id === 'mega' ? 'MEGA.nz' : file.provider_id === 'mediafire' ? 'MediaFire' : file.provider_id === 'backblaze' ? 'Backblaze' : file.provider_id === 'filebase' ? 'Filebase' : 'Supabase'}
           </span>
         )}
       </div>
@@ -1303,7 +1304,7 @@ function FileRow({
       <span>
         {file.provider_id ? (
           <span className={`cv-provider-badge ${file.provider_id}`}>
-            {file.provider_id === 'mega' ? 'MEGA.nz' : file.provider_id === 'mediafire' ? 'MediaFire' : file.provider_id === 'backblaze' ? 'Backblaze' : file.provider_id === 'filebase' ? 'Filebase' : 'Supabase'}
+            {file.provider_id === 'gdrive' ? 'Google Drive' : file.provider_id === 'mega' ? 'MEGA.nz' : file.provider_id === 'mediafire' ? 'MediaFire' : file.provider_id === 'backblaze' ? 'Backblaze' : file.provider_id === 'filebase' ? 'Filebase' : 'Supabase'}
           </span>
         ) : (
           <span className="cv-file-meta">—</span>

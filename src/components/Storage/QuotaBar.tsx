@@ -8,6 +8,7 @@ interface QuotaBarProps {
 }
 
 const PROVIDER_COLORS: Record<string, string> = {
+  gdrive: '#0F9D58',
   mega: '#ea1b25',
   mediafire: '#0070f3',
   backblaze: 'var(--cv-provider-backblaze)',

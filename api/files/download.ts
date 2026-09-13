@@ -75,6 +75,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.redirect(302, directUrl);
       }
 
+      if (thumb.provider_id === 'gdrive') {
+        const directUrl = `https://drive.google.com/uc?export=download&id=${encodeURIComponent(thumb.storage_key)}&confirm=t`;
+        res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
+        return res.redirect(302, directUrl);
+      }
+
       const downloadUrl = await getPresignedDownloadUrl(thumb.provider_id, thumb.storage_key, 86400);
       res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
       return res.redirect(302, downloadUrl);
@@ -137,6 +143,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (file.provider_id === 'mediafire') {
       const { getMediaFireDownloadUrl } = await import('../_lib/mediafire.js');
       const directUrl = await getMediaFireDownloadUrl(file.storage_key);
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
+      return res.redirect(302, directUrl);
+    }
+
+    // For Google Drive provider: redirect to Google CDN direct download URL (supports HTTP 206 Range seeking)
+    if (file.provider_id === 'gdrive') {
+      const directUrl = `https://drive.google.com/uc?export=download&id=${encodeURIComponent(file.storage_key)}&confirm=t`;
       res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
       return res.redirect(302, directUrl);
     }

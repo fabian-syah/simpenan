@@ -71,7 +71,7 @@ function UploadItem({ upload, onRemove }: { upload: UploadTask; onRemove: (id: s
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {upload.provider && (
             <span className={`cv-provider-badge ${upload.provider}`}>
-              {upload.provider === 'mega' ? 'MEGA.nz' : upload.provider === 'mediafire' ? 'MediaFire' : upload.provider === 'backblaze' ? 'Backblaze' : upload.provider === 'filebase' ? 'Filebase' : 'Supabase'}
+              {upload.provider === 'gdrive' ? 'Google Drive' : upload.provider === 'mega' ? 'MEGA.nz' : upload.provider === 'mediafire' ? 'MediaFire' : upload.provider === 'backblaze' ? 'Backblaze' : upload.provider === 'filebase' ? 'Filebase' : 'Supabase'}
             </span>
           )}
           {upload.status === 'complete' && <Check size={14} style={{ color: 'var(--cv-success)' }} />}

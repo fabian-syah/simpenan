@@ -4,7 +4,7 @@
 
 export type UploadStatus = 'pending' | 'uploading' | 'complete' | 'failed';
 
-export type ProviderId = 'backblaze' | 'filebase' | 'supabase' | 'mega' | 'mediafire';
+export type ProviderId = 'backblaze' | 'filebase' | 'supabase' | 'mega' | 'mediafire' | 'gdrive';
 
 export type TargetStorageOption = 'auto' | ProviderId;
 
@@ -45,6 +45,8 @@ export interface UploadTicket {
   presignedUrls: string[];
   megaSession?: any;
   mediafireToken?: string;
+  gdriveScriptUrl?: string;
+  gdriveSecret?: string;
   uploadId: string | null;    // Multipart upload ID (null for single-part)
   storageKey: string;
   chunkSize: number;

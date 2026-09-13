@@ -188,6 +188,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    // Google Drive Storage upload session (via Google Apps Script Web App)
+    if (providerId === 'gdrive') {
+      const { GDRIVE_SCRIPT_URL, GDRIVE_SECRET } = await import('../_lib/gdrive.js');
+
+      return res.status(200).json({
+        fileId: fileRecord.id,
+        provider: 'gdrive',
+        presignedUrls: [GDRIVE_SCRIPT_URL],
+        gdriveScriptUrl: GDRIVE_SCRIPT_URL,
+        gdriveSecret: GDRIVE_SECRET,
+        uploadId: null,
+        storageKey,
+        chunkSize: fileSize,
+      });
+    }
+
     // Supabase Storage presigned PUT upload
     if (providerId === 'supabase') {
       const bucket = process.env.SUPA_BUCKET || selectedProvider.bucket_name || 'drive-clone-supa-1';

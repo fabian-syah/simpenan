@@ -135,6 +135,7 @@ export function Sidebar({
               title="Select cloud storage backend for uploads"
             >
               <option value="auto">Auto (Smart Balanced)</option>
+              <option value="gdrive">Google Drive (5 TB)</option>
               <option value="mega">MEGA.nz (20 GB)</option>
               <option value="backblaze">Backblaze B2 (10 GB)</option>
               <option value="mediafire">MediaFire (10 GB)</option>

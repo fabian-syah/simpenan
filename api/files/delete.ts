@@ -36,6 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       supabase: 0,
       mega: 0,
       mediafire: 0,
+      gdrive: 0,
     };
 
     if (file.is_folder) {
@@ -68,7 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await supabaseAdmin.from('files').delete().eq('id', file.id);
       await supabaseAdmin.from('files').delete().like('path', `${file.path}/%`);
 
-      // STEP 2: CONCURRENT PHYSICAL DELETION FROM CLOUD STORAGE (Backblaze, Filebase, Supabase, MEGA, MediaFire)
+      // STEP 2: CONCURRENT PHYSICAL DELETION FROM CLOUD STORAGE (Backblaze, Filebase, Supabase, MEGA, MediaFire, Google Drive)
       const storageDeletions: Promise<any>[] = [];
       for (const item of [...allItems, ...variants]) {
         if (!item.is_folder && item.storage_key && item.provider_id) {
@@ -91,6 +92,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             storageDeletions.push(
               import('../_lib/mediafire.js').then(({ deleteMediaFireFile }) => deleteMediaFireFile(item.storage_key)).catch((err) => {
                 console.warn(`MediaFire storage delete warning for ${item.storage_key}:`, err?.message);
+              })
+            );
+          } else if (item.provider_id === 'gdrive') {
+            storageDeletions.push(
+              import('../_lib/gdrive.js').then(({ deleteGDriveFile }) => deleteGDriveFile(item.storage_key)).catch((err) => {
+                console.warn(`Google Drive storage delete warning for ${item.storage_key}:`, err?.message);
               })
             );
           } else {
@@ -149,6 +156,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               console.warn('MediaFire storage delete warning:', err?.message);
             })
           );
+        } else if (file.provider_id === 'gdrive') {
+          storageDeletions.push(
+            import('../_lib/gdrive.js').then(({ deleteGDriveFile }) => deleteGDriveFile(file.storage_key)).catch((err) => {
+              console.warn('Google Drive storage delete warning:', err?.message);
+            })
+          );
         } else {
           storageDeletions.push(
             deleteObject(file.provider_id, file.storage_key).catch((err) => {
@@ -176,6 +189,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             } else if (v.provider_id === 'mediafire') {
               storageDeletions.push(
                 import('../_lib/mediafire.js').then(({ deleteMediaFireFile }) => deleteMediaFireFile(v.storage_key)).catch((err) => {
+                  console.warn('Variant delete warning:', err?.message);
+                })
+              );
+            } else if (v.provider_id === 'gdrive') {
+              storageDeletions.push(
+                import('../_lib/gdrive.js').then(({ deleteGDriveFile }) => deleteGDriveFile(v.storage_key)).catch((err) => {
                   console.warn('Variant delete warning:', err?.message);
                 })
               );

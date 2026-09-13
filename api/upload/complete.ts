@@ -36,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // If multipart upload, complete it on the storage provider
-    if (uploadId && parts && parts.length > 0 && file.provider_id !== 'supabase' && file.provider_id !== 'mega' && file.provider_id !== 'mediafire') {
+    if (uploadId && parts && parts.length > 0 && file.provider_id !== 'supabase' && file.provider_id !== 'mega' && file.provider_id !== 'mediafire' && file.provider_id !== 'gdrive') {
       await completeMultipartUpload(
         file.provider_id,
         file.storage_key,

@@ -157,6 +157,72 @@ export function useUpload(
 
           updateUpload(taskId, { status: 'completing', progress: 99 });
           await completeUpload(ticket.fileId, undefined, undefined, quickkey);
+        } else if (ticket.provider === 'gdrive') {
+          const scriptUrl = ticket.gdriveScriptUrl || ticket.presignedUrls[0];
+          const secret = ticket.gdriveSecret || 'simpenan_gdrive_secret_2026';
+
+          updateUpload(taskId, { status: 'uploading', provider: 'gdrive' });
+
+          // Convert file to base64
+          const base64Data = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result as string;
+              const base64 = result.indexOf(',') !== -1 ? result.split(',')[1] : result;
+              resolve(base64);
+            };
+            reader.onerror = () => reject(new Error('Gagal membaca berkas untuk upload Google Drive'));
+            reader.readAsDataURL(file);
+          });
+
+          const payload = JSON.stringify({
+            secret,
+            fileName: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            fileData: base64Data,
+          });
+
+          // Send POST request via XMLHttpRequest with text/plain to avoid CORS OPTIONS preflight
+          const uploadResponseText = await new Promise<string>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', scriptUrl, true);
+            xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8');
+
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable) {
+                const progress = Math.min(95, Math.round((event.loaded / event.total) * 95));
+                const elapsed = (Date.now() - startTime) / 1000;
+                const speed = elapsed > 0 ? event.loaded / elapsed : 0;
+                updateUpload(taskId, { progress, speed });
+              }
+            };
+
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 400) {
+                resolve(xhr.responseText);
+              } else {
+                reject(new Error(`Google Drive upload gagal: HTTP ${xhr.status}`));
+              }
+            };
+
+            xhr.onerror = () => reject(new Error('Koneksi jaringan terputus saat upload ke Google Drive'));
+            xhr.send(payload);
+          });
+
+          let uploadResult: any;
+          try {
+            uploadResult = JSON.parse(uploadResponseText);
+          } catch (parseErr) {
+            throw new Error(`Respons Google Drive tidak valid: ${uploadResponseText.slice(0, 100)}`);
+          }
+
+          if (!uploadResult?.success || !uploadResult?.fileId) {
+            throw new Error(uploadResult?.error || 'Gagal menyimpan berkas ke Google Drive');
+          }
+
+          const gdriveFileId = uploadResult.fileId;
+          updateUpload(taskId, { status: 'completing', progress: 99 });
+          await completeUpload(ticket.fileId, undefined, undefined, gdriveFileId);
         } else if (needsMultipart(file.size) && ticket.presignedUrls.length > 1) {
           // Step 2a: Multipart upload — chunk and upload in parallel
           const chunks = chunkFile(file, CHUNK_SIZE);
