@@ -61,7 +61,7 @@ export interface UploadCompleteRequest {
 export interface UserQuota {
   userId: string;
   email: string;
-  tier: 'starter' | 'founder' | 'pro' | 'creator';
+  tier: 'starter' | 'testing' | 'founder' | 'pro' | 'creator' | (string & {});
   isLifetime: boolean;
   storageLimitBytes: number;
   maxFileSizeBytes: number;
