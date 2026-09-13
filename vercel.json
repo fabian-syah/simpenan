@@ -4,7 +4,8 @@
   "framework": "vite",
   "rewrites": [
     { "source": "/api/files/thumbnail", "destination": "/api/files/download?thumb=true" },
-    { "source": "/api/files/variants", "destination": "/api/files/get?variants_only=true" }
+    { "source": "/api/files/variants", "destination": "/api/files/list?variants_only=true" },
+    { "source": "/api/files/get", "destination": "/api/files/list" }
   ],
   "headers": [
     {
