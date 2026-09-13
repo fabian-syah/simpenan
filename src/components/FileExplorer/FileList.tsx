@@ -8,7 +8,7 @@ import {
   FileType, Archive, Code, File, Star, MoreVertical, Download,
   Edit2, Link as LinkIcon, FolderOpen, Trash2, CloudUpload,
   Check, Play, FolderInput, X, ArrowUp, ArrowDown, Pin, Tag,
-  Palette
+  Palette, Plus
 } from 'lucide-react';
 
 interface FileListProps {
@@ -904,12 +904,16 @@ export function FileList({
                         borderRadius: 6,
                         fontWeight: 600,
                         fontSize: 11,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
                       }}
                       onClick={() => {
                         toggleFileTag(contextMenu.file.id, t.name);
                       }}
                     >
-                      {isAssigned ? '✓ ' : '+ '}{t.name}
+                      {isAssigned ? <Check size={11} /> : <Plus size={11} />}
+                      <span>{t.name}</span>
                     </button>
                   );
                 })}

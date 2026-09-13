@@ -53,9 +53,9 @@ async function setupCors() {
     });
     
     await b2Client.send(command);
-    console.log(`✅ Successfully applied CORS rules to Backblaze bucket: ${b2Bucket}`);
+    console.log(`[SUCCESS] Successfully applied CORS rules to Backblaze bucket: ${b2Bucket}`);
   } catch (err) {
-    console.error('❌ Failed to set Backblaze CORS:', err);
+    console.error('[ERROR] Failed to set Backblaze CORS:', err);
   }
 
   // Filebase CORS
@@ -79,9 +79,9 @@ async function setupCors() {
         CORSConfiguration: corsRule,
       });
       await fbClient.send(fbCommand);
-      console.log(`✅ Successfully applied CORS rules to Filebase bucket: ${fbBucket}`);
+      console.log(`[SUCCESS] Successfully applied CORS rules to Filebase bucket: ${fbBucket}`);
     } catch (err) {
-      console.error('❌ Failed to set Filebase CORS:', err);
+      console.error('[ERROR] Failed to set Filebase CORS:', err);
     }
   }
 }

@@ -1562,6 +1562,7 @@ export const VideoPlayer = React.memo(function VideoPlayer({
           </button>
           <button
             type="button"
+            className="cv-resume-toast-close"
             onClick={() => setResumeToast(null)}
             style={{
               background: 'transparent',
@@ -1571,12 +1572,11 @@ export const VideoPlayer = React.memo(function VideoPlayer({
               padding: '2px 4px',
               display: 'flex',
               alignItems: 'center',
-              fontSize: 12,
               flexShrink: 0,
             }}
             title="Tutup Notifikasi"
           >
-            ✕
+            <X size={14} />
           </button>
         </div>
       )}

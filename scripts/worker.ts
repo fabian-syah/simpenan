@@ -620,7 +620,7 @@ async function scanAndProcessPendingVideos(): Promise<void> {
 
 async function startWorker(): Promise<void> {
   console.log(`============================================================`);
-  console.log(`  Simpenan Background Video Transcoder Worker Started 🎬   `);
+  console.log(`  Simpenan Background Video Transcoder Worker Started      `);
   console.log(`  FFmpeg Native Binary: ${ffmpegPath}`);
   console.log(`  Target Resolutions: 720p, 480p, 360p (Universal MP4)    `);
   console.log(`  Monitoring Supabase Database & Realtime Channels...      `);
