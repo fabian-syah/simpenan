@@ -94,9 +94,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 console.warn(`MediaFire storage delete warning for ${item.storage_key}:`, err?.message);
               })
             );
-          } else if (item.provider_id === 'gdrive') {
+          } else if (item.provider_id.startsWith('gdrive')) {
             storageDeletions.push(
-              import('../_lib/gdrive.js').then(({ deleteGDriveFile }) => deleteGDriveFile(item.storage_key)).catch((err) => {
+              (async () => {
+                const { data: prov } = await supabaseAdmin.from('storage_providers').select('endpoint_url').eq('id', item.provider_id).single();
+                const { deleteGDriveFile } = await import('../_lib/gdrive.js');
+                return deleteGDriveFile(item.storage_key, prov?.endpoint_url);
+              })().catch((err) => {
                 console.warn(`Google Drive storage delete warning for ${item.storage_key}:`, err?.message);
               })
             );
@@ -156,9 +160,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               console.warn('MediaFire storage delete warning:', err?.message);
             })
           );
-        } else if (file.provider_id === 'gdrive') {
+        } else if (file.provider_id.startsWith('gdrive')) {
           storageDeletions.push(
-            import('../_lib/gdrive.js').then(({ deleteGDriveFile }) => deleteGDriveFile(file.storage_key)).catch((err) => {
+            (async () => {
+              const { data: prov } = await supabaseAdmin.from('storage_providers').select('endpoint_url').eq('id', file.provider_id).single();
+              const { deleteGDriveFile } = await import('../_lib/gdrive.js');
+              return deleteGDriveFile(file.storage_key, prov?.endpoint_url);
+            })().catch((err) => {
               console.warn('Google Drive storage delete warning:', err?.message);
             })
           );
@@ -192,9 +200,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                   console.warn('Variant delete warning:', err?.message);
                 })
               );
-            } else if (v.provider_id === 'gdrive') {
+            } else if (v.provider_id.startsWith('gdrive')) {
               storageDeletions.push(
-                import('../_lib/gdrive.js').then(({ deleteGDriveFile }) => deleteGDriveFile(v.storage_key)).catch((err) => {
+                (async () => {
+                  const { data: prov } = await supabaseAdmin.from('storage_providers').select('endpoint_url').eq('id', v.provider_id).single();
+                  const { deleteGDriveFile } = await import('../_lib/gdrive.js');
+                  return deleteGDriveFile(v.storage_key, prov?.endpoint_url);
+                })().catch((err) => {
                   console.warn('Variant delete warning:', err?.message);
                 })
               );

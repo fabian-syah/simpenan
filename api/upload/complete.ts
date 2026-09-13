@@ -36,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // If multipart upload, complete it on the storage provider
-    if (uploadId && parts && parts.length > 0 && file.provider_id !== 'supabase' && file.provider_id !== 'mega' && file.provider_id !== 'mediafire' && file.provider_id !== 'gdrive') {
+    if (uploadId && parts && parts.length > 0 && file.provider_id !== 'supabase' && file.provider_id !== 'mega' && file.provider_id !== 'mediafire' && !file.provider_id?.startsWith('gdrive')) {
       await completeMultipartUpload(
         file.provider_id,
         file.storage_key,
@@ -61,10 +61,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // If Google Drive, ensure public share permission asynchronously
-    if (file.provider_id === 'gdrive' && (storageKey || file.storage_key)) {
-      import('../_lib/gdrive.js').then(({ makeGDrivePublic }) =>
-        makeGDrivePublic(storageKey || file.storage_key)
-      ).catch(e => console.warn('Make GDrive public error:', e));
+    if (file.provider_id?.startsWith('gdrive') && (storageKey || file.storage_key)) {
+      supabaseAdmin
+        .from('storage_providers')
+        .select('endpoint_url')
+        .eq('id', file.provider_id)
+        .single()
+        .then(({ data: prov }) => {
+          const scriptUrl = prov?.endpoint_url || undefined;
+          import('../_lib/gdrive.js').then(({ makeGDrivePublic }) =>
+            makeGDrivePublic(storageKey || file.storage_key, scriptUrl)
+          ).catch(e => console.warn('Make GDrive public error:', e));
+        })
+        .catch(e => console.warn('Fetch GDrive provider endpoint error:', e));
     }
 
     // Update the provider's used_bytes accurately from files table

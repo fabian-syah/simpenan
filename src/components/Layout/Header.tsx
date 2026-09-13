@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Search, LayoutGrid, List, Menu, ChevronRight, Sun, Moon, Monitor, Layers } from 'lucide-react';
+import { Search, LayoutGrid, List, Menu, ChevronRight, Sun, Moon, Monitor, Layers, HardDrive } from 'lucide-react';
 import type { Theme } from '../../hooks/useTheme';
-import type { TargetStorageOption } from '../../types';
+import type { StorageProvider, TargetStorageOption } from '../../types';
 
 interface HeaderProps {
   breadcrumbs: { name: string; path: string }[];
@@ -15,6 +15,8 @@ interface HeaderProps {
   onMenuClick: () => void;
   targetProvider?: TargetStorageOption;
   onTargetProviderChange?: (provider: TargetStorageOption) => void;
+  providers?: StorageProvider[];
+  onOpenManageStorage?: () => void;
   onMoveFiles?: (fileIds: string[], targetPath: string) => Promise<void>;
 }
 
@@ -30,6 +32,8 @@ export function Header({
   onMenuClick,
   targetProvider = 'auto',
   onTargetProviderChange,
+  providers,
+  onOpenManageStorage,
   onMoveFiles,
 }: HeaderProps) {
   const [dragOverCrumbPath, setDragOverCrumbPath] = useState<string | null>(null);
@@ -119,13 +123,45 @@ export function Header({
               aria-label="Select storage backend"
             >
               <option value="auto">Auto (Balanced)</option>
-              <option value="gdrive">Google Drive (5 TB)</option>
-              <option value="mega">MEGA.nz (20 GB)</option>
-              <option value="backblaze">Backblaze B2 (10 GB)</option>
-              <option value="mediafire">MediaFire (10 GB)</option>
-              <option value="filebase">Filebase (Max 25MB Video)</option>
-              <option value="supabase">Supabase (Max 50MB)</option>
+              {providers && providers.length > 0 ? (
+                providers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.display_name}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="gdrive">Google Drive (5 TB)</option>
+                  <option value="mega">MEGA.nz (20 GB)</option>
+                  <option value="backblaze">Backblaze B2 (10 GB)</option>
+                  <option value="mediafire">MediaFire (10 GB)</option>
+                  <option value="filebase">Filebase (Max 25MB Video)</option>
+                  <option value="supabase">Supabase (Max 50MB)</option>
+                </>
+              )}
             </select>
+            {onOpenManageStorage && (
+              <button
+                type="button"
+                onClick={onOpenManageStorage}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--cv-text-tertiary)',
+                  cursor: 'pointer',
+                  padding: '2px 4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginLeft: 2,
+                  transition: 'color 0.15s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--cv-accent)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--cv-text-tertiary)')}
+                title="Kelola & Tambah Akun Cloud Storage"
+              >
+                <HardDrive size={14} />
+              </button>
+            )}
           </div>
         )}
 

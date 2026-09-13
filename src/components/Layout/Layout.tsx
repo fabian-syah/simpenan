@@ -4,7 +4,7 @@ import { ChevronUp, RotateCw } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import type { Theme } from '../../hooks/useTheme';
-import type { TargetStorageOption } from '../../types';
+import type { StorageProvider, TargetStorageOption } from '../../types';
 
 interface LayoutProps {
   children: ReactNode;
@@ -24,6 +24,8 @@ interface LayoutProps {
   quotaElement?: ReactNode;
   targetProvider?: TargetStorageOption;
   onTargetProviderChange?: (provider: TargetStorageOption) => void;
+  providers?: StorageProvider[];
+  onOpenManageStorage?: () => void;
   onMoveFiles?: (fileIds: string[], targetPath: string) => Promise<void>;
   onRefresh?: () => Promise<void> | void;
 }
@@ -45,6 +47,8 @@ export function Layout({
   quotaElement,
   targetProvider = 'auto',
   onTargetProviderChange,
+  providers,
+  onOpenManageStorage,
   onMoveFiles,
   onRefresh,
 }: LayoutProps) {
@@ -186,6 +190,7 @@ export function Layout({
         quotaElement={quotaElement}
         targetProvider={targetProvider}
         onTargetProviderChange={onTargetProviderChange}
+        providers={providers}
         onMoveFiles={onMoveFiles}
         theme={theme}
         onThemeChange={onThemeChange}
@@ -204,6 +209,8 @@ export function Layout({
           onMenuClick={() => setSidebarOpen(true)}
           targetProvider={targetProvider}
           onTargetProviderChange={onTargetProviderChange}
+          providers={providers}
+          onOpenManageStorage={onOpenManageStorage}
           onMoveFiles={onMoveFiles}
         />
         <main

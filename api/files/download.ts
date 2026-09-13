@@ -39,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             /\.(png|jpe?g|webp|gif|svg|avif|bmp|ico)$/i.test(originalFile.name);
 
           if (isImage) {
-            if (originalFile.provider_id === 'gdrive') {
+            if (originalFile.provider_id === 'gdrive' || originalFile.provider_id?.startsWith('gdrive')) {
               res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
               return res.redirect(302, `https://lh3.googleusercontent.com/d/${encodeURIComponent(originalFile.storage_key)}=s400`);
             }
@@ -119,7 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.redirect(302, directUrl);
       }
 
-      if (thumb.provider_id === 'gdrive') {
+      if (thumb.provider_id === 'gdrive' || thumb.provider_id?.startsWith('gdrive')) {
         const directUrl = `https://lh3.googleusercontent.com/d/${encodeURIComponent(thumb.storage_key)}=s400`;
         res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
         return res.redirect(302, directUrl);
@@ -192,7 +192,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // For Google Drive provider:
-    if (file.provider_id === 'gdrive') {
+    if (file.provider_id === 'gdrive' || file.provider_id?.startsWith('gdrive')) {
       const isDownload = req.query.download === 'true';
       const isImage = file.mime_type?.startsWith('image/') ||
         /\.(png|jpe?g|webp|gif|svg|avif|bmp|ico)$/i.test(file.name);

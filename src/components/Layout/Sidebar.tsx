@@ -14,7 +14,7 @@ import {
   Moon,
   Monitor,
 } from 'lucide-react';
-import type { TargetStorageOption } from '../../types';
+import type { StorageProvider, TargetStorageOption } from '../../types';
 import type { Theme } from '../../hooks/useTheme';
 
 interface SidebarProps {
@@ -27,6 +27,7 @@ interface SidebarProps {
   quotaElement?: ReactNode;
   targetProvider?: TargetStorageOption;
   onTargetProviderChange?: (provider: TargetStorageOption) => void;
+  providers?: StorageProvider[];
   onMoveFiles?: (fileIds: string[], targetPath: string) => Promise<void>;
   theme?: Theme;
   onThemeChange?: (theme: Theme) => void;
@@ -49,6 +50,7 @@ export function Sidebar({
   quotaElement,
   targetProvider = 'auto',
   onTargetProviderChange,
+  providers,
   onMoveFiles,
   theme,
   onThemeChange,
@@ -135,12 +137,22 @@ export function Sidebar({
               title="Select cloud storage backend for uploads"
             >
               <option value="auto">Auto (Smart Balanced)</option>
-              <option value="gdrive">Google Drive (5 TB)</option>
-              <option value="mega">MEGA.nz (20 GB)</option>
-              <option value="backblaze">Backblaze B2 (10 GB)</option>
-              <option value="mediafire">MediaFire (10 GB)</option>
-              <option value="filebase">Filebase IPFS (5 GB - Max 25MB Video)</option>
-              <option value="supabase">Supabase Storage (1 GB - Max 50MB)</option>
+              {providers && providers.length > 0 ? (
+                providers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.display_name}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="gdrive">Google Drive (5 TB)</option>
+                  <option value="mega">MEGA.nz (20 GB)</option>
+                  <option value="backblaze">Backblaze B2 (10 GB)</option>
+                  <option value="mediafire">MediaFire (10 GB)</option>
+                  <option value="filebase">Filebase IPFS (5 GB - Max 25MB Video)</option>
+                  <option value="supabase">Supabase Storage (1 GB - Max 50MB)</option>
+                </>
+              )}
             </select>
           </div>
         )}

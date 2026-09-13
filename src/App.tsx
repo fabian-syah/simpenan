@@ -7,6 +7,7 @@ import { QuotaBar } from './components/Storage/QuotaBar';
 import { Modal } from './components/UI/Modal';
 import { PreviewModal } from './components/FileExplorer/PreviewModal';
 import { ShareModal } from './components/Share/ShareModal';
+import { ManageStorageModal } from './components/Storage/ManageStorageModal';
 import { AudioPlayerBar } from './components/AudioPlayer/AudioPlayerBar';
 import type { FileRecord, TargetStorageOption } from './types';
 import { getDownloadUrl } from './lib/api';
@@ -37,6 +38,7 @@ export default function App() {
   const [previewFile, setPreviewFile] = useState<FileRecord | null>(null);
   const [shareModalFile, setShareModalFile] = useState<FileRecord | null>(null);
   const [currentAudio, setCurrentAudio] = useState<{ file: FileRecord; url: string } | null>(null);
+  const [showManageStorage, setShowManageStorage] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -138,9 +140,17 @@ export default function App() {
         onSearchChange={setSearchQuery}
         activeSection={activeSection}
         onSectionChange={handleSectionChange}
-        quotaElement={<QuotaBar quota={quota} loading={quotaLoading} />}
+        quotaElement={
+          <QuotaBar
+            quota={quota}
+            loading={quotaLoading}
+            onOpenManageStorage={() => setShowManageStorage(true)}
+          />
+        }
         targetProvider={targetProvider}
         onTargetProviderChange={handleTargetProviderChange}
+        providers={quota?.providers}
+        onOpenManageStorage={() => setShowManageStorage(true)}
         onMoveFiles={moveFiles}
         onRefresh={handleRefresh}
       >
@@ -256,6 +266,15 @@ export default function App() {
         <ShareModal
           file={shareModalFile}
           onClose={() => setShareModalFile(null)}
+        />
+      )}
+
+      {/* Multi-Cloud & Google Drive Storage Manager Modal */}
+      {showManageStorage && (
+        <ManageStorageModal
+          quota={quota}
+          onClose={() => setShowManageStorage(false)}
+          onRefreshQuota={fetchQuota}
         />
       )}
     </DropZone>

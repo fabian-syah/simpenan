@@ -157,9 +157,9 @@ export function useUpload(
 
           updateUpload(taskId, { status: 'completing', progress: 99 });
           await completeUpload(ticket.fileId, undefined, undefined, quickkey);
-        } else if (ticket.provider === 'gdrive') {
+        } else if (ticket.provider === 'gdrive' || ticket.provider.startsWith('gdrive')) {
           const uploadUrl = ticket.presignedUrls[0];
-          updateUpload(taskId, { status: 'uploading', provider: 'gdrive' });
+          updateUpload(taskId, { status: 'uploading', provider: ticket.provider });
 
           // Direct raw binary PUT upload to Google Drive Resumable Upload URL
           // Supports unlimited file size (up to 5 TB), full native CORS, and real-time progress

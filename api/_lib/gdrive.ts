@@ -15,6 +15,7 @@ export interface CreateResumableUploadParams {
   fileSize?: number;
   mimeType?: string;
   origin?: string;
+  scriptUrl?: string;
 }
 
 /**
@@ -33,7 +34,8 @@ export async function createGDriveResumableUpload(
     origin: params.origin || 'https://simpenan-theta.vercel.app',
   });
 
-  const url = `${GDRIVE_SCRIPT_URL}?${query.toString()}`;
+  const baseUrl = params.scriptUrl?.trim() || GDRIVE_SCRIPT_URL;
+  const url = `${baseUrl}?${query.toString()}`;
   const res = await fetch(url);
   const data = await res.json();
 
@@ -51,10 +53,11 @@ export async function createGDriveResumableUpload(
 /**
  * Ensures a file in Google Drive has public view permissions (ANYONE_WITH_LINK)
  */
-export async function makeGDrivePublic(fileId: string): Promise<boolean> {
+export async function makeGDrivePublic(fileId: string, scriptUrl?: string): Promise<boolean> {
   if (!fileId) return false;
   try {
-    const url = `${GDRIVE_SCRIPT_URL}?action=make_public&secret=${encodeURIComponent(GDRIVE_SECRET)}&fileId=${encodeURIComponent(fileId)}`;
+    const baseUrl = scriptUrl?.trim() || GDRIVE_SCRIPT_URL;
+    const url = `${baseUrl}?action=make_public&secret=${encodeURIComponent(GDRIVE_SECRET)}&fileId=${encodeURIComponent(fileId)}`;
     const res = await fetch(url);
     const data = await res.json();
     return !!data?.success;
@@ -67,10 +70,11 @@ export async function makeGDrivePublic(fileId: string): Promise<boolean> {
 /**
  * Delete / trash a file in Google Drive permanently by fileId
  */
-export async function deleteGDriveFile(fileId: string): Promise<boolean> {
+export async function deleteGDriveFile(fileId: string, scriptUrl?: string): Promise<boolean> {
   if (!fileId) return true;
   try {
-    const url = `${GDRIVE_SCRIPT_URL}?action=delete&secret=${encodeURIComponent(GDRIVE_SECRET)}&fileId=${encodeURIComponent(fileId)}`;
+    const baseUrl = scriptUrl?.trim() || GDRIVE_SCRIPT_URL;
+    const url = `${baseUrl}?action=delete&secret=${encodeURIComponent(GDRIVE_SECRET)}&fileId=${encodeURIComponent(fileId)}`;
     const res = await fetch(url);
     const data = await res.json();
     return !!data?.success;
@@ -83,9 +87,10 @@ export async function deleteGDriveFile(fileId: string): Promise<boolean> {
 /**
  * Fetch Google Drive storage quota (limit and used bytes)
  */
-export async function getGDriveQuota(): Promise<{ usedBytes: number; maxBytes: number }> {
+export async function getGDriveQuota(scriptUrl?: string): Promise<{ usedBytes: number; maxBytes: number }> {
   try {
-    const url = `${GDRIVE_SCRIPT_URL}?action=quota&secret=${encodeURIComponent(GDRIVE_SECRET)}`;
+    const baseUrl = scriptUrl?.trim() || GDRIVE_SCRIPT_URL;
+    const url = `${baseUrl}?action=quota&secret=${encodeURIComponent(GDRIVE_SECRET)}`;
     const res = await fetch(url);
     const data = await res.json();
     if (data?.success) {
@@ -101,4 +106,38 @@ export async function getGDriveQuota(): Promise<{ usedBytes: number; maxBytes: n
     usedBytes: 0,
     maxBytes: 5497558138880,
   };
+}
+
+/**
+ * Validates a Google Apps Script Web App connection
+ */
+export async function testGDriveConnection(
+  scriptUrl: string,
+  secret: string = GDRIVE_SECRET
+): Promise<{ success: boolean; usedBytes?: number; maxBytes?: number; error?: string }> {
+  try {
+    const cleanUrl = scriptUrl.trim();
+    if (!cleanUrl.startsWith('https://script.google.com/')) {
+      return { success: false, error: 'URL harus diawali dengan https://script.google.com/' };
+    }
+    const url = `${cleanUrl}?action=quota&secret=${encodeURIComponent(secret)}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const data = await res.json();
+    if (data?.success) {
+      return {
+        success: true,
+        usedBytes: Number(data.used_bytes) || 0,
+        maxBytes: Number(data.limit_bytes) || 5497558138880,
+      };
+    }
+    return {
+      success: false,
+      error: data?.error || 'Akses ditolak atau respons Google Apps Script tidak valid.',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: `Gagal menghubungi Google Apps Script: ${err.message || 'Timeout / Network Error'}`,
+    };
+  }
 }

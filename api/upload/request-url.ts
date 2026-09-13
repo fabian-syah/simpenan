@@ -189,22 +189,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Google Drive Storage upload session (via Google Apps Script Web App Resumable Upload)
-    if (providerId === 'gdrive') {
+    if (providerId === 'gdrive' || providerId.startsWith('gdrive')) {
       const { createGDriveResumableUpload, GDRIVE_SCRIPT_URL, GDRIVE_SECRET } = await import('../_lib/gdrive.js');
       const origin = (req.headers.origin as string) || (req.headers.referer ? new URL(req.headers.referer).origin : 'https://simpenan-theta.vercel.app');
+      const scriptUrl = selectedProvider?.endpoint_url?.trim() || GDRIVE_SCRIPT_URL;
 
       const resumableUploadUrl = await createGDriveResumableUpload({
         fileName,
         fileSize,
         mimeType: contentType,
         origin,
+        scriptUrl,
       });
 
       return res.status(200).json({
         fileId: fileRecord.id,
-        provider: 'gdrive',
+        provider: providerId,
         presignedUrls: [resumableUploadUrl],
-        gdriveScriptUrl: GDRIVE_SCRIPT_URL,
+        gdriveScriptUrl: scriptUrl,
         gdriveSecret: GDRIVE_SECRET,
         uploadId: null,
         storageKey,

@@ -1,10 +1,11 @@
 import type { QuotaInfo } from '../../types';
 import { formatBytes } from '../../types';
-import { Cloud } from 'lucide-react';
+import { Cloud, Plus } from 'lucide-react';
 
 interface QuotaBarProps {
   quota: QuotaInfo | null;
   loading: boolean;
+  onOpenManageStorage?: () => void;
 }
 
 const PROVIDER_COLORS: Record<string, string> = {
@@ -16,7 +17,18 @@ const PROVIDER_COLORS: Record<string, string> = {
   supabase: 'var(--cv-provider-supabase)',
 };
 
-export function QuotaBar({ quota, loading }: QuotaBarProps) {
+const GDRIVE_PALETTE = ['#0F9D58', '#4285F4', '#F4B400', '#EA4335', '#10b981', '#06b6d4'];
+
+export function getProviderColor(id: string): string {
+  if (id === 'gdrive' || id.startsWith('gdrive')) {
+    if (id === 'gdrive' || id === 'gdrive_1') return '#0F9D58';
+    const num = parseInt(id.replace(/\D/g, ''), 10) || 2;
+    return GDRIVE_PALETTE[(num - 1) % GDRIVE_PALETTE.length] || '#4285F4';
+  }
+  return PROVIDER_COLORS[id] || 'var(--cv-accent)';
+}
+
+export function QuotaBar({ quota, loading, onOpenManageStorage }: QuotaBarProps) {
   if (loading || !quota) {
     return (
       <div className="cv-quota-bar">
@@ -40,9 +52,34 @@ export function QuotaBar({ quota, loading }: QuotaBarProps) {
             Cloud Storage
           </span>
         </div>
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--cv-accent)', background: 'var(--cv-accent-muted)', padding: '2px 7px', borderRadius: 'var(--cv-radius-full)' }}>
-          {usedPercent.toFixed(1)}%
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {onOpenManageStorage && (
+            <button
+              onClick={onOpenManageStorage}
+              style={{
+                background: 'rgba(56, 189, 248, 0.12)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                color: 'var(--cv-accent)',
+                fontSize: 10.5,
+                fontWeight: 600,
+                padding: '2px 8px',
+                borderRadius: 'var(--cv-radius-full)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 3,
+                transition: 'background 0.15s, border-color 0.15s',
+              }}
+              title="Kelola & Tambah Akun Google Drive"
+            >
+              <Plus size={11} strokeWidth={2.5} />
+              <span>Akun</span>
+            </button>
+          )}
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--cv-accent)', background: 'var(--cv-accent-muted)', padding: '2px 7px', borderRadius: 'var(--cv-radius-full)' }}>
+            {usedPercent.toFixed(1)}%
+          </span>
+        </div>
       </div>
 
       {/* Segmented progress bar */}
@@ -58,7 +95,7 @@ export function QuotaBar({ quota, loading }: QuotaBarProps) {
               className="cv-quota-segment"
               style={{
                 width: `${Math.max(segmentWidth, 1)}%`,
-                background: PROVIDER_COLORS[provider.id] || 'var(--cv-accent)',
+                background: getProviderColor(provider.id),
               }}
               title={`${provider.display_name}: ${formatBytes(provider.used_bytes)} / ${formatBytes(provider.max_bytes)}`}
             />
@@ -79,7 +116,7 @@ export function QuotaBar({ quota, loading }: QuotaBarProps) {
             <div className="cv-quota-legend-left">
               <div
                 className="cv-quota-dot"
-                style={{ background: PROVIDER_COLORS[provider.id] || 'var(--cv-accent)' }}
+                style={{ background: getProviderColor(provider.id) }}
               />
               <span>{provider.display_name}</span>
             </div>

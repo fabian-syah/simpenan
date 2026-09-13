@@ -4,7 +4,7 @@
 
 export type UploadStatus = 'pending' | 'uploading' | 'complete' | 'failed';
 
-export type ProviderId = 'backblaze' | 'filebase' | 'supabase' | 'mega' | 'mediafire' | 'gdrive';
+export type ProviderId = 'backblaze' | 'filebase' | 'supabase' | 'mega' | 'mediafire' | 'gdrive' | (string & {});
 
 export type TargetStorageOption = 'auto' | ProviderId;
 
