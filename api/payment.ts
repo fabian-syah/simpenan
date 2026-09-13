@@ -151,10 +151,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .from('profiles')
           .update({
             tier,
-            is_lifetime: tierInfo.isLifetime,
             storage_limit_bytes: tierInfo.storageLimitBytes,
             max_file_size_bytes: tierInfo.maxFileSizeBytes,
-            subscription_end_date: subEndDate,
             updated_at: new Date().toISOString(),
           })
           .eq('id', paymentRecord.user_id);
@@ -164,8 +162,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .from('payments')
           .update({
             status: 'PAID',
-            paywuz_tx_id: transactionId || paymentRecord.paywuz_tx_id,
-            paid_at: new Date().toISOString(),
+            paywuz_reference: transactionId || paymentRecord.paywuz_reference,
             updated_at: new Date().toISOString(),
           })
           .eq('order_id', orderId);
@@ -241,24 +238,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // Record transaction in Supabase payments table
-      await supabaseAdmin.from('payments').insert({
+      const insertRecord: any = {
         user_id: authUser.id,
         order_id: orderId,
         tier,
         amount: planConfig.amount,
-        payment_method: paymentMethod,
+        payment_method: paymentMethod || 'ALL',
         status: 'PENDING',
-        paywuz_tx_id: paywuzResponse?.id || null,
-        payment_url: paymentUrl,
-        qr_string: qrString,
-        va_number: vaNumber,
-        va_bank: vaBank,
-        payload: {
+        paywuz_reference: paywuzResponse?.id || null,
+        raw_payload: {
           period,
           planName: planConfig.name,
+          paymentUrl,
+          qrString,
+          vaNumber,
+          vaBank,
           paywuzResponse,
         },
-      });
+      };
+
+      const { error: insertErr } = await supabaseAdmin.from('payments').insert(insertRecord);
+      if (insertErr) {
+        console.error('Failed to insert payment record:', insertErr);
+      }
 
       return res.status(200).json({
         success: true,
@@ -289,11 +291,61 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .from('payments')
         .select('*')
         .eq('order_id', orderId)
-        .eq('user_id', authUser.id)
         .single();
 
       if (error || !payment) {
         return res.status(404).json({ error: 'Order not found' });
+      }
+
+      if (payment.user_id !== authUser.id) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      // Proactively check Paywuz API if still PENDING to support instant upgrades
+      if (payment.status === 'PENDING' && payment.paywuz_reference) {
+        const paywuzApiKey = process.env.PAYWUZ_API_KEY?.trim();
+        if (paywuzApiKey) {
+          try {
+            const checkRes = await fetch(`https://api.paywuz.id/v1/transactions/${encodeURIComponent(payment.paywuz_reference)}`, {
+              headers: {
+                Authorization: `Bearer ${paywuzApiKey}`,
+              },
+            });
+            if (checkRes.ok) {
+              const pwData = await checkRes.json();
+              const pwTx = pwData.data || pwData;
+              const pwStatus = (pwTx.status || '').toUpperCase();
+              if (pwStatus === 'PAID' || pwStatus === 'SETTLED' || pwStatus === 'SUCCESS') {
+                const tierInfo = TIER_CONFIG[payment.tier]?.[payment.raw_payload?.period || 'lifetime'] ||
+                  TIER_CONFIG[payment.tier]?.[Object.keys(TIER_CONFIG[payment.tier] || {})[0]];
+                
+                if (tierInfo) {
+                  await supabaseAdmin
+                    .from('profiles')
+                    .update({
+                      tier: payment.tier,
+                      storage_limit_bytes: tierInfo.storageLimitBytes,
+                      max_file_size_bytes: tierInfo.maxFileSizeBytes,
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', payment.user_id);
+                }
+
+                await supabaseAdmin
+                  .from('payments')
+                  .update({
+                    status: 'PAID',
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('order_id', orderId);
+
+                payment.status = 'PAID';
+              }
+            }
+          } catch {
+            // Non-blocking Paywuz check
+          }
+        }
       }
 
       return res.status(200).json({
@@ -302,7 +354,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         status: payment.status,
         amount: payment.amount,
         tier: payment.tier,
-        paidAt: payment.paid_at,
+        paidAt: payment.updated_at,
       });
     } catch (err: any) {
       return res.status(500).json({ error: 'Internal server error', details: err.message });
