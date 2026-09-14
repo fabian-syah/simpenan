@@ -8,21 +8,19 @@ import {
   X, Upload, FileText, Check, RotateCcw, RotateCw,
   Music, Sparkles, Search, RefreshCw, Play, Pause,
   SkipBack, SkipForward, Maximize2, Minimize2,
-  AlignLeft, AlignCenter
+  AlignLeft, AlignCenter, ChevronDown
 } from 'lucide-react';
 import type { FileRecord } from '../../types';
 import type { AudioMetadata } from '../../utils/id3Reader';
 import {
-  parseLrc, findActiveLyricIndex, getCustomLyrics,
-  saveCustomLyrics, parseAudioFilename, fetchOnlineLyrics,
-  parsePlainLyricsToLines, type ParsedLyrics
+  findActiveLyricIndex
 } from '../../utils/lrcParser';
-import { getDownloadUrl } from '../../lib/api';
+import { useAudioLyrics } from '../../utils/useAudioLyrics';
 
 interface AudioLyricsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  file: FileRecord;
+  file: FileRecord | null;
   metadata: AudioMetadata | null;
   currentTime: number;
   duration: number;
@@ -32,6 +30,8 @@ interface AudioLyricsModalProps {
   onNext?: () => void;
   onPrevious?: () => void;
   siblingFiles?: FileRecord[];
+  onBackToPlayer?: () => void;
+  sharedLyrics?: ReturnType<typeof useAudioLyrics>;
 }
 
 function formatTime(secs: number): string {
@@ -54,16 +54,33 @@ export function AudioLyricsModal({
   onNext,
   onPrevious,
   siblingFiles = [],
+  onBackToPlayer,
+  sharedLyrics,
 }: AudioLyricsModalProps) {
-  const [lyricsData, setLyricsData] = useState<ParsedLyrics>({ lines: [] });
-  const [loading, setLoading] = useState(false);
+  const internalLyrics = useAudioLyrics({
+    file,
+    metadata,
+    duration,
+    currentTime,
+    siblingFiles,
+  });
+
+  const activeLyrics = sharedLyrics || internalLyrics;
+  const {
+    lyricsData,
+    loading,
+    lyricsSource,
+    searchQuery,
+    setSearchQuery,
+    isSearchingOnline,
+    searchOnline,
+    saveManual,
+    displayTitle,
+    displayArtist,
+  } = activeLyrics;
+
   const [showEditor, setShowEditor] = useState(false);
   const [manualText, setManualText] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchingOnline, setIsSearchingOnline] = useState(false);
-  const [lyricsSource, setLyricsSource] = useState<
-    'id3' | 'online_synced' | 'online_plain' | 'local_file' | 'custom' | null
-  >(null);
   const [userScrolled, setUserScrolled] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [textAlign, setTextAlign] = useState<'left' | 'center'>(() => {
@@ -74,10 +91,6 @@ export function AudioLyricsModal({
   const activeLineRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<any>(null);
 
-  const parsedFile = parseAudioFilename(file?.name || '');
-  const displayTitle = metadata?.title || parsedFile.title || file?.name.replace(/\.[^/.]+$/, '');
-  const displayArtist = metadata?.artist || parsedFile.artist || 'Simpenan Audio';
-
   const handleToggleAlign = () => {
     const next = textAlign === 'left' ? 'center' : 'left';
     setTextAlign(next);
@@ -85,112 +98,6 @@ export function AudioLyricsModal({
       localStorage.setItem('cv_lyrics_align', next);
     } catch {}
   };
-
-  // Load lyrics on mount or track change
-  useEffect(() => {
-    if (!isOpen || !file) return;
-
-    let isMounted = true;
-    setLoading(true);
-    setUserScrolled(false);
-    setSearchQuery(parsedFile.cleanQuery);
-
-    async function loadLyrics() {
-      // 1. Check custom user-saved lyrics in localStorage
-      const custom = getCustomLyrics(file.id);
-      if (custom) {
-        if (isMounted) {
-          setLyricsData(parseLrc(custom));
-          setLyricsSource('custom');
-          setLoading(false);
-        }
-        return;
-      }
-
-      // 2. Check embedded ID3 lyrics
-      if (metadata?.lyrics) {
-        if (isMounted) {
-          setLyricsData(parseLrc(metadata.lyrics));
-          setLyricsSource('id3');
-          setLoading(false);
-        }
-        return;
-      }
-
-      // 3. Auto-detect matching .lrc file in sibling files
-      const baseName = file.name.replace(/\.[^/.]+$/, '').toLowerCase();
-      const matchingLrc = siblingFiles.find((f) => {
-        const sBase = f.name.replace(/\.[^/.]+$/, '').toLowerCase();
-        return (
-          sBase === baseName &&
-          (f.name.toLowerCase().endsWith('.lrc') || f.name.toLowerCase().endsWith('.txt'))
-        );
-      });
-
-      if (matchingLrc) {
-        try {
-          const res = await fetch(getDownloadUrl(matchingLrc.id));
-          if (res.ok) {
-            const text = await res.text();
-            if (isMounted) {
-              setLyricsData(parseLrc(text));
-              setLyricsSource('local_file');
-              setLoading(false);
-              return;
-            }
-          }
-        } catch {
-          // Ignore fetch error
-        }
-      }
-
-      // 4. Automatic Online Fetch via LRCLIB
-      const query = metadata?.title && metadata?.artist
-        ? `${metadata.artist} ${metadata.title}`
-        : parsedFile.cleanQuery;
-      const targetArtist = metadata?.artist || parsedFile.artist;
-      const targetTitle = metadata?.title || parsedFile.title;
-
-      try {
-        const online = await fetchOnlineLyrics(query, targetArtist, targetTitle, duration);
-        if (online && isMounted) {
-          if (online.isSynced) {
-            const parsedLrc = parseLrc(online.lyrics);
-            if (parsedLrc.lines.length > 0) {
-              setLyricsData(parsedLrc);
-              setLyricsSource('online_synced');
-              saveCustomLyrics(file.id, online.lyrics);
-              setLoading(false);
-              return;
-            }
-          } else {
-            const plainLines = parsePlainLyricsToLines(online.lyrics, duration);
-            if (plainLines.length > 0) {
-              setLyricsData({ lines: plainLines });
-              setLyricsSource('online_plain');
-              saveCustomLyrics(file.id, online.lyrics);
-              setLoading(false);
-              return;
-            }
-          }
-        }
-      } catch {
-        // Online lookup failed
-      }
-
-      if (isMounted) {
-        setLyricsData({ lines: [] });
-        setLyricsSource(null);
-        setLoading(false);
-      }
-    }
-
-    loadLyrics();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen, file, metadata, siblingFiles, duration]);
 
   const activeIndex = findActiveLyricIndex(lyricsData.lines, currentTime);
 
@@ -226,38 +133,15 @@ export function AudioLyricsModal({
 
   const handleSaveManualLyrics = () => {
     if (!manualText.trim()) return;
-    saveCustomLyrics(file.id, manualText);
-    setLyricsData(parseLrc(manualText));
-    setLyricsSource('custom');
+    saveManual(manualText);
     setShowEditor(false);
     setUserScrolled(false);
   };
 
   const handleOnlineSearch = async (overrideQuery?: string) => {
-    const q = (overrideQuery || searchQuery).trim();
-    if (!q) return;
-    setIsSearchingOnline(true);
-    try {
-      const online = await fetchOnlineLyrics(q, undefined, q, duration);
-      if (online) {
-        if (online.isSynced) {
-          const parsedLrc = parseLrc(online.lyrics);
-          setLyricsData(parsedLrc);
-          setLyricsSource('online_synced');
-          saveCustomLyrics(file.id, online.lyrics);
-        } else {
-          const plainLines = parsePlainLyricsToLines(online.lyrics, duration);
-          setLyricsData({ lines: plainLines });
-          setLyricsSource('online_plain');
-          saveCustomLyrics(file.id, online.lyrics);
-        }
-        setShowEditor(false);
-        setUserScrolled(false);
-      }
-    } catch {
-      // Search error
-    }
-    setIsSearchingOnline(false);
+    await searchOnline(overrideQuery);
+    setShowEditor(false);
+    setUserScrolled(false);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -267,9 +151,7 @@ export function AudioLyricsModal({
     reader.onload = (evt) => {
       const content = evt.target?.result as string;
       if (content) {
-        saveCustomLyrics(file.id, content);
-        setLyricsData(parseLrc(content));
-        setLyricsSource('custom');
+        saveManual(content);
         setShowEditor(false);
         setUserScrolled(false);
       }
@@ -296,7 +178,7 @@ export function AudioLyricsModal({
         <div className="cv-lyrics-backdrop-gradient" />
       )}
 
-      {/* Spotify Dark Gradient Vignette */}
+      {/* Dark Vignette Tint */}
       <div className="cv-lyrics-vignette" />
 
       <div
@@ -305,6 +187,16 @@ export function AudioLyricsModal({
       >
         {/* Top Header Bar */}
         <div className="cv-lyrics-header spotify-header">
+          {onBackToPlayer && (
+            <button
+              onClick={onBackToPlayer}
+              className="cv-lyrics-icon-btn cv-lyrics-back-btn"
+              title="Kembali ke Layar Pemutar"
+            >
+              <ChevronDown size={22} />
+            </button>
+          )}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
             <div
               style={{

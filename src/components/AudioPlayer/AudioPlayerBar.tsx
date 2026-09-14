@@ -8,7 +8,7 @@ import { useState, useRef, useEffect, useCallback, type ChangeEvent, type CSSPro
 import {
   Play, Pause, Volume2, Volume1, VolumeX, RotateCcw, RotateCw,
   Repeat, Repeat1, X, Music, Disc, Shuffle, SkipBack, SkipForward,
-  ListMusic, Mic2, Sliders
+  ListMusic, Mic2, Sliders, ChevronUp
 } from 'lucide-react';
 import type { FileRecord } from '../../types';
 import { formatBytes } from '../../types';
@@ -21,7 +21,9 @@ import {
 } from '../../utils/mediaSession';
 import { AudioQueueDrawer } from './AudioQueueDrawer';
 import { AudioLyricsModal } from './AudioLyricsModal';
+import { MobileNowPlayingModal } from './MobileNowPlayingModal';
 import { parseAudioFilename } from '../../utils/lrcParser';
+import { useAudioLyrics } from '../../utils/useAudioLyrics';
 
 interface AudioPlayerBarProps {
   file: FileRecord | null;
@@ -87,6 +89,11 @@ export function AudioPlayerBar({
   const [showQueue, setShowQueue] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showMobileNowPlaying, setShowMobileNowPlaying] = useState(false);
+
+  // Sleep Timer (null = off, 15, 30, 45, 60, -1 = end of track)
+  const [sleepTimerMinutes, setSleepTimerMinutes] = useState<number | null>(null);
+  const [sleepTimerRemainingSecs, setSleepTimerRemainingSecs] = useState<number | null>(null);
 
   // Batch 3: ID3 Metadata & Album Cover
   const [metadata, setMetadata] = useState<AudioMetadata | null>(null);
@@ -98,6 +105,54 @@ export function AudioPlayerBar({
 
   // Crossfade transition state
   const isTransitioningRef = useRef(false);
+
+  // Shared Lyrics State across Player Bar, Mobile Now Playing preview, and Lyrics Modal
+  const sharedLyrics = useAudioLyrics({
+    file,
+    metadata,
+    duration,
+    currentTime,
+    siblingFiles,
+  });
+
+  // Sleep Timer Countdown Effect
+  useEffect(() => {
+    if (sleepTimerMinutes === null || sleepTimerMinutes === -1) {
+      setSleepTimerRemainingSecs(null);
+      return;
+    }
+
+    setSleepTimerRemainingSecs(sleepTimerMinutes * 60);
+
+    const interval = setInterval(() => {
+      setSleepTimerRemainingSecs((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          if (audioRef.current) {
+            audioRef.current.pause();
+          }
+          setIsPlaying(false);
+          setSleepTimerMinutes(null);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [sleepTimerMinutes]);
+
+  const handleAudioEnded = () => {
+    if (sleepTimerMinutes === -1) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      setIsPlaying(false);
+      setSleepTimerMinutes(null);
+      return;
+    }
+    handleNext();
+  };
 
   // Sync internal queue with prop changes
   useEffect(() => {
@@ -447,7 +502,7 @@ export function AudioPlayerBar({
           src={url}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
-          onEnded={handleNext}
+          onEnded={handleAudioEnded}
         />
 
         {/* Hidden Deck B for gapless preload */}
@@ -499,7 +554,12 @@ export function AudioPlayerBar({
         {/* Main Bar Info & Controls */}
         <div className="cv-audio-row">
           {/* Track Details & Album Cover */}
-          <div className="cv-audio-track">
+          <div
+            className="cv-audio-track"
+            onClick={() => setShowMobileNowPlaying(true)}
+            style={{ cursor: 'pointer' }}
+            title="Buka Layar Pemutar Musik Lengkap"
+          >
             <div
               style={{
                 width: 42,
@@ -809,6 +869,20 @@ export function AudioPlayerBar({
               style={{ width: 1, height: 20, background: 'rgba(255, 255, 255, 0.15)' }}
             />
 
+            {/* Mobile Expand Full Player Sheet Button */}
+            <button
+              onClick={() => setShowMobileNowPlaying(true)}
+              className="cv-mobile-only"
+              style={{
+                ...btnStyle,
+                color: '#38bdf8',
+                padding: 4,
+              }}
+              title="Perluas Layar Pemutar Musik"
+            >
+              <ChevronUp size={19} />
+            </button>
+
             {/* Dismiss / Close Player */}
             <button
               onClick={onClose}
@@ -858,6 +932,48 @@ export function AudioPlayerBar({
         onNext={handleNext}
         onPrevious={handlePrevious}
         siblingFiles={siblingFiles}
+        onBackToPlayer={() => {
+          setShowLyrics(false);
+          setShowMobileNowPlaying(true);
+        }}
+        sharedLyrics={sharedLyrics}
+      />
+
+      {/* Mobile Now Playing Sheet Modal */}
+      <MobileNowPlayingModal
+        isOpen={showMobileNowPlaying}
+        onClose={() => setShowMobileNowPlaying(false)}
+        file={file}
+        metadata={metadata}
+        currentTime={currentTime}
+        duration={duration}
+        isPlaying={isPlaying}
+        onTogglePlay={togglePlay}
+        onSeek={(sec) => {
+          if (audioRef.current) {
+            audioRef.current.currentTime = sec;
+            setCurrentTime(sec);
+          }
+        }}
+        onNext={handleNext}
+        onPrevious={handlePrevious}
+        isShuffle={isShuffle}
+        onToggleShuffle={() => setIsShuffle(!isShuffle)}
+        repeatMode={repeatMode}
+        onCycleRepeat={cycleRepeatMode}
+        onOpenFullLyrics={() => {
+          setShowLyrics(true);
+        }}
+        onOpenQueue={() => setShowQueue(true)}
+        queue={queue}
+        currentIndex={activeIdx}
+        lyricsData={sharedLyrics.lyricsData}
+        lyricsLoading={sharedLyrics.loading}
+        lyricsSource={sharedLyrics.lyricsSource}
+        activeIndex={sharedLyrics.activeIndex}
+        sleepTimerMinutes={sleepTimerMinutes}
+        onSetSleepTimer={(mins) => setSleepTimerMinutes(mins)}
+        sleepTimerRemainingSecs={sleepTimerRemainingSecs}
       />
     </>
   );
