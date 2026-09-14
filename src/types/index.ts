@@ -87,6 +87,16 @@ export interface UploadTask {
   status?: 'queued' | 'requesting' | 'uploading' | 'transcoding' | 'completing' | 'complete' | 'failed' | 'transcoding 720p' | 'uploading 720p' | 'transcoding 480p' | 'uploading 480p';
   provider?: ProviderId;
   error?: string;
+  // Batch 4: ETA & Speed
+  eta?: number;            // seconds remaining
+  averageSpeed?: number;   // rolling average bytes/sec
+  startedAt?: number;      // timestamp ms
+  // Batch 4: Retry
+  retryCount?: number;
+  maxRetries?: number;
+  isRetrying?: boolean;
+  // Batch 4: Folder upload
+  relativePath?: string;   // relative path for folder uploads
 }
 
 // File listing request/response
@@ -162,4 +172,17 @@ export function formatProviderName(providerId?: string | null): string {
   if (providerId === 'filebase') return 'Simpenan IPFS';
   if (providerId === 'supabase') return 'Simpenan Core';
   return 'Simpenan Cloud';
+}
+
+export function formatETA(seconds: number): string {
+  if (!seconds || seconds <= 0 || !isFinite(seconds)) return '';
+  if (seconds < 60) return '< 1m';
+  if (seconds < 3600) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  }
+  const h = Math.floor(seconds / 3600);
+  const m = Math.round((seconds % 3600) / 60);
+  return m > 0 ? `~${h}h ${m}m` : `~${h}h`;
 }

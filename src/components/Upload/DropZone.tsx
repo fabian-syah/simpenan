@@ -1,13 +1,62 @@
 import { useState, useCallback, useRef } from 'react';
-import { CloudUpload } from 'lucide-react';
+import { CloudUpload, FolderUp } from 'lucide-react';
+
+export interface FolderEntry {
+  file: File;
+  relativePath: string;
+}
 
 interface DropZoneProps {
   onFilesDropped: (files: FileList) => void;
+  onFolderDropped?: (entries: FolderEntry[]) => void;
   children: React.ReactNode;
 }
 
-export function DropZone({ onFilesDropped, children }: DropZoneProps) {
+// Recursively traverse FileSystemDirectoryEntry to collect all files
+async function traverseDirectory(
+  entry: FileSystemDirectoryEntry,
+  basePath: string
+): Promise<FolderEntry[]> {
+  const results: FolderEntry[] = [];
+  const reader = entry.createReader();
+
+  const readAll = (): Promise<FileSystemEntry[]> =>
+    new Promise((resolve, reject) => {
+      const allEntries: FileSystemEntry[] = [];
+      const readBatch = () => {
+        reader.readEntries((batch) => {
+          if (batch.length === 0) {
+            resolve(allEntries);
+          } else {
+            allEntries.push(...batch);
+            readBatch();
+          }
+        }, reject);
+      };
+      readBatch();
+    });
+
+  const entries = await readAll();
+
+  for (const child of entries) {
+    const childPath = basePath ? `${basePath}/${child.name}` : child.name;
+    if (child.isFile) {
+      const file = await new Promise<File>((resolve, reject) =>
+        (child as FileSystemFileEntry).file(resolve, reject)
+      );
+      results.push({ file, relativePath: childPath });
+    } else if (child.isDirectory) {
+      const subFiles = await traverseDirectory(child as FileSystemDirectoryEntry, childPath);
+      results.push(...subFiles);
+    }
+  }
+
+  return results;
+}
+
+export function DropZone({ onFilesDropped, onFolderDropped, children }: DropZoneProps) {
   const [isDragActive, setIsDragActive] = useState(false);
+  const [isFolder, setIsFolder] = useState(false);
   const dragCounter = useRef(0);
 
   const isExternalFileDrag = (e: React.DragEvent): boolean => {
@@ -33,6 +82,7 @@ export function DropZone({ onFilesDropped, children }: DropZoneProps) {
     if (dragCounter.current <= 0) {
       dragCounter.current = 0;
       setIsDragActive(false);
+      setIsFolder(false);
     }
   }, []);
 
@@ -41,19 +91,66 @@ export function DropZone({ onFilesDropped, children }: DropZoneProps) {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'copy';
+
+    // Detect if dragging folders via items
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      const item = e.dataTransfer.items[0];
+      if (item.webkitGetAsEntry) {
+        const entry = item.webkitGetAsEntry();
+        setIsFolder(entry?.isDirectory || false);
+      }
+    }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
     if (!isExternalFileDrag(e)) return;
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
+    setIsFolder(false);
     dragCounter.current = 0;
 
+    // Check if any dropped items are folders using webkitGetAsEntry
+    const items = e.dataTransfer.items;
+    if (items && items.length > 0 && onFolderDropped) {
+      let hasFolder = false;
+      const folderEntries: FileSystemDirectoryEntry[] = [];
+      const plainFiles: File[] = [];
+
+      for (let i = 0; i < items.length; i++) {
+        const entry = items[i].webkitGetAsEntry?.();
+        if (entry?.isDirectory) {
+          hasFolder = true;
+          folderEntries.push(entry as FileSystemDirectoryEntry);
+        } else if (entry?.isFile) {
+          const file = e.dataTransfer.files[i];
+          if (file) plainFiles.push(file);
+        }
+      }
+
+      if (hasFolder) {
+        // Traverse all folder entries
+        const allEntries: FolderEntry[] = [];
+        for (const dir of folderEntries) {
+          const entries = await traverseDirectory(dir, dir.name);
+          allEntries.push(...entries);
+        }
+        // Also include any loose files
+        for (const f of plainFiles) {
+          allEntries.push({ file: f, relativePath: f.name });
+        }
+        if (allEntries.length > 0) {
+          onFolderDropped(allEntries);
+        }
+        return;
+      }
+    }
+
+    // Fallback: regular file drop
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       onFilesDropped(e.dataTransfer.files);
     }
-  }, [onFilesDropped]);
+  }, [onFilesDropped, onFolderDropped]);
 
   return (
     <div
@@ -69,13 +166,15 @@ export function DropZone({ onFilesDropped, children }: DropZoneProps) {
       <div className={`cv-dropzone ${isDragActive ? 'active' : ''}`}>
         <div className="cv-dropzone-inner">
           <div className="cv-dropzone-icon">
-            <CloudUpload size={32} />
+            {isFolder ? <FolderUp size={32} /> : <CloudUpload size={32} />}
           </div>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: 'var(--cv-text-primary)', letterSpacing: '-0.01em' }}>
-            Release to Cloud
+            {isFolder ? 'Upload Folder' : 'Release to Cloud'}
           </div>
           <div style={{ fontSize: 13.5, color: 'var(--cv-text-secondary)', lineHeight: 1.5 }}>
-            Your files will be automatically synced and balanced across your Multi-Cloud storage
+            {isFolder
+              ? 'Folder dan semua isinya akan diunggah dengan struktur yang sama'
+              : 'Your files will be automatically synced and balanced across your Multi-Cloud storage'}
           </div>
         </div>
       </div>

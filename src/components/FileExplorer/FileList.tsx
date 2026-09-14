@@ -29,6 +29,8 @@ interface FileListProps {
   user?: any | null;
   onOpenAuth?: () => void;
   onOpenLegal?: () => void;
+  onDownloadZip?: (files: FileRecord[], zipName?: string) => void;
+  onUploadFolder?: () => void;
 }
 
 const ICON_MAP: Record<string, any> = {

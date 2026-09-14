@@ -188,8 +188,8 @@ export function parseID3TagsFromBuffer(buffer: ArrayBuffer): AudioMetadata {
 }
 
 export async function fetchAudioMetadata(url: string): Promise<AudioMetadata> {
+  // Strategy 1: Attempt Range request (fastest, 512 KB slice)
   try {
-    // Fetch initial 512 KB slice for fast ID3 parsing
     const response = await fetch(url, {
       headers: {
         Range: 'bytes=0-524287',
@@ -198,10 +198,52 @@ export async function fetchAudioMetadata(url: string): Promise<AudioMetadata> {
 
     if (response.ok || response.status === 206) {
       const buffer = await response.arrayBuffer();
-      return parseID3TagsFromBuffer(buffer);
+      const meta = parseID3TagsFromBuffer(buffer);
+      if (meta.title || meta.artist || meta.coverUrl) {
+        return meta;
+      }
     }
   } catch {
-    // Fallback: If range request fails, return empty metadata
+    // Range request failed (e.g. CORS preflight on Range header)
   }
+
+  // Strategy 2: Stream the first 512 KB using simple GET (avoids CORS Range preflight)
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const response = await fetch(url, { signal: controller.signal });
+
+    if (response.ok && response.body) {
+      const reader = response.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let totalBytes = 0;
+      const MAX_BYTES = 524288; // 512 KB
+
+      while (totalBytes < MAX_BYTES) {
+        const { done, value } = await reader.read();
+        if (done || !value) break;
+        chunks.push(value);
+        totalBytes += value.length;
+      }
+
+      clearTimeout(timeout);
+      try {
+        reader.cancel();
+      } catch {}
+
+      if (totalBytes > 10) {
+        const combined = new Uint8Array(totalBytes);
+        let offset = 0;
+        for (const chunk of chunks) {
+          combined.set(chunk, offset);
+          offset += chunk.length;
+        }
+        return parseID3TagsFromBuffer(combined.buffer);
+      }
+    }
+  } catch {
+    // Stream fetch failed
+  }
+
   return {};
 }

@@ -1,17 +1,19 @@
 // ============================================================
 // AudioLyricsModal Component
 // Synchronized lyrics viewer with auto-scroll and ambient glassmorphism
+// Automatic online lyrics lookup (LRCLIB), ID3 extraction, and manual LRC
 // ============================================================
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Mic2, X, Upload, FileText, Check, RotateCcw,
-  Music, Sparkles
+  Music, Sparkles, Search, RefreshCw
 } from 'lucide-react';
 import type { FileRecord } from '../../types';
 import type { AudioMetadata } from '../../utils/id3Reader';
 import {
   parseLrc, findActiveLyricIndex, getCustomLyrics,
-  saveCustomLyrics, type ParsedLyrics
+  saveCustomLyrics, parseAudioFilename, fetchOnlineLyrics,
+  parsePlainLyricsToLines, type ParsedLyrics
 } from '../../utils/lrcParser';
 import { getDownloadUrl } from '../../lib/api';
 
@@ -33,6 +35,7 @@ export function AudioLyricsModal({
   file,
   metadata,
   currentTime,
+  duration,
   onSeek,
   siblingFiles = [],
 }: AudioLyricsModalProps) {
@@ -40,11 +43,20 @@ export function AudioLyricsModal({
   const [loading, setLoading] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [manualText, setManualText] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchingOnline, setIsSearchingOnline] = useState(false);
+  const [lyricsSource, setLyricsSource] = useState<
+    'id3' | 'online_synced' | 'online_plain' | 'local_file' | 'custom' | null
+  >(null);
   const [userScrolled, setUserScrolled] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const activeLineRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<any>(null);
+
+  const parsedFile = parseAudioFilename(file?.name || '');
+  const displayTitle = metadata?.title || parsedFile.title || file?.name.replace(/\.[^/.]+$/, '');
+  const displayArtist = metadata?.artist || parsedFile.artist || 'Simpenan Audio';
 
   // Load lyrics on mount or track change
   useEffect(() => {
@@ -53,6 +65,7 @@ export function AudioLyricsModal({
     let isMounted = true;
     setLoading(true);
     setUserScrolled(false);
+    setSearchQuery(parsedFile.cleanQuery);
 
     async function loadLyrics() {
       // 1. Check custom user-saved lyrics in localStorage
@@ -60,6 +73,7 @@ export function AudioLyricsModal({
       if (custom) {
         if (isMounted) {
           setLyricsData(parseLrc(custom));
+          setLyricsSource('custom');
           setLoading(false);
         }
         return;
@@ -69,6 +83,7 @@ export function AudioLyricsModal({
       if (metadata?.lyrics) {
         if (isMounted) {
           setLyricsData(parseLrc(metadata.lyrics));
+          setLyricsSource('id3');
           setLoading(false);
         }
         return;
@@ -91,17 +106,53 @@ export function AudioLyricsModal({
             const text = await res.text();
             if (isMounted) {
               setLyricsData(parseLrc(text));
+              setLyricsSource('local_file');
               setLoading(false);
               return;
             }
           }
         } catch {
-          // Ignore fetch error, continue to empty
+          // Ignore fetch error, continue
         }
+      }
+
+      // 4. Automatic Online Fetch via LRCLIB
+      const query = metadata?.title && metadata?.artist
+        ? `${metadata.artist} ${metadata.title}`
+        : parsedFile.cleanQuery;
+      const targetArtist = metadata?.artist || parsedFile.artist;
+      const targetTitle = metadata?.title || parsedFile.title;
+
+      try {
+        const online = await fetchOnlineLyrics(query, targetArtist, targetTitle, duration);
+        if (online && isMounted) {
+          if (online.isSynced) {
+            const parsedLrc = parseLrc(online.lyrics);
+            if (parsedLrc.lines.length > 0) {
+              setLyricsData(parsedLrc);
+              setLyricsSource('online_synced');
+              saveCustomLyrics(file.id, online.lyrics);
+              setLoading(false);
+              return;
+            }
+          } else {
+            const plainLines = parsePlainLyricsToLines(online.lyrics, duration);
+            if (plainLines.length > 0) {
+              setLyricsData({ lines: plainLines });
+              setLyricsSource('online_plain');
+              saveCustomLyrics(file.id, online.lyrics);
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch {
+        // Online lookup failed
       }
 
       if (isMounted) {
         setLyricsData({ lines: [] });
+        setLyricsSource(null);
         setLoading(false);
       }
     }
@@ -111,7 +162,7 @@ export function AudioLyricsModal({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, file, metadata, siblingFiles]);
+  }, [isOpen, file, metadata, siblingFiles, duration]);
 
   const activeIndex = findActiveLyricIndex(lyricsData.lines, currentTime);
 
@@ -130,7 +181,6 @@ export function AudioLyricsModal({
   const handleContainerScroll = useCallback(() => {
     setUserScrolled(true);
     if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-    // After 6 seconds of inactivity, resume auto-scrolling
     scrollTimeoutRef.current = setTimeout(() => {
       setUserScrolled(false);
     }, 6000);
@@ -150,8 +200,36 @@ export function AudioLyricsModal({
     if (!manualText.trim()) return;
     saveCustomLyrics(file.id, manualText);
     setLyricsData(parseLrc(manualText));
+    setLyricsSource('custom');
     setShowEditor(false);
     setUserScrolled(false);
+  };
+
+  const handleOnlineSearch = async (overrideQuery?: string) => {
+    const q = (overrideQuery || searchQuery).trim();
+    if (!q) return;
+    setIsSearchingOnline(true);
+    try {
+      const online = await fetchOnlineLyrics(q, undefined, q, duration);
+      if (online) {
+        if (online.isSynced) {
+          const parsedLrc = parseLrc(online.lyrics);
+          setLyricsData(parsedLrc);
+          setLyricsSource('online_synced');
+          saveCustomLyrics(file.id, online.lyrics);
+        } else {
+          const plainLines = parsePlainLyricsToLines(online.lyrics, duration);
+          setLyricsData({ lines: plainLines });
+          setLyricsSource('online_plain');
+          saveCustomLyrics(file.id, online.lyrics);
+        }
+        setShowEditor(false);
+        setUserScrolled(false);
+      }
+    } catch {
+      // Search error
+    }
+    setIsSearchingOnline(false);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -163,6 +241,7 @@ export function AudioLyricsModal({
       if (content) {
         saveCustomLyrics(file.id, content);
         setLyricsData(parseLrc(content));
+        setLyricsSource('custom');
         setShowEditor(false);
         setUserScrolled(false);
       }
@@ -171,9 +250,6 @@ export function AudioLyricsModal({
   };
 
   if (!isOpen) return null;
-
-  const displayTitle = metadata?.title || file.name.replace(/\.[^/.]+$/, '');
-  const displayArtist = metadata?.artist || 'Simpenan Audio';
 
   return (
     <div className="cv-lyrics-overlay" onClick={onClose}>
@@ -236,15 +312,36 @@ export function AudioLyricsModal({
               </div>
               <div
                 style={{
-                  fontSize: 12.5,
-                  color: '#94a3b8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
                   marginTop: 2,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
                 }}
               >
-                {displayArtist}
+                <span
+                  style={{
+                    fontSize: 12.5,
+                    color: '#94a3b8',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {displayArtist}
+                </span>
+
+                {lyricsSource === 'online_synced' && (
+                  <span className="cv-lyrics-badge synced">Tersinkronisasi Otomatis</span>
+                )}
+                {lyricsSource === 'online_plain' && (
+                  <span className="cv-lyrics-badge plain">Lirik Online</span>
+                )}
+                {lyricsSource === 'id3' && (
+                  <span className="cv-lyrics-badge id3">Dari Tag Audio</span>
+                )}
+                {lyricsSource === 'local_file' && (
+                  <span className="cv-lyrics-badge local">Berkas .lrc</span>
+                )}
               </div>
             </div>
           </div>
@@ -253,11 +350,11 @@ export function AudioLyricsModal({
             <button
               onClick={() => setShowEditor(!showEditor)}
               className="cv-lyrics-icon-btn"
-              title="Edit / Tempel Lirik (.lrc)"
+              title="Cari atau Tempel Lirik (.lrc)"
             >
               <FileText size={16} />
               <span className="cv-desktop-only" style={{ fontSize: 12 }}>
-                {showEditor ? 'Tutup Editor' : 'Kelola Lirik'}
+                {showEditor ? 'Tutup Kelola' : 'Kelola / Cari'}
               </span>
             </button>
 
@@ -285,18 +382,48 @@ export function AudioLyricsModal({
         {/* Content Body */}
         {showEditor ? (
           <div className="cv-lyrics-editor-panel">
+            {/* Quick Online Search */}
+            <div style={{ marginBottom: 18, background: 'rgba(255, 255, 255, 0.04)', padding: 14, borderRadius: 12, border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc', marginBottom: 6 }}>
+                Cari Lirik Online Otomatis
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleOnlineSearch()}
+                  placeholder="Ketik judul lagu atau artis..."
+                  className="cv-lyrics-search-input"
+                />
+                <button
+                  onClick={() => handleOnlineSearch()}
+                  disabled={isSearchingOnline || !searchQuery.trim()}
+                  className="cv-lyrics-save-btn"
+                >
+                  {isSearchingOnline ? (
+                    <RefreshCw size={14} className="animate-spin" />
+                  ) : (
+                    <Search size={14} />
+                  )}
+                  <span>Cari</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Manual Paste or File Upload */}
             <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc', marginBottom: 6 }}>
               Tempel atau Unggah Berkas Lirik (.lrc)
             </div>
-            <p style={{ margin: '0 0 12px', fontSize: 11.5, color: '#94a3b8', lineHeight: 1.4 }}>
-              Format standar LRC: [00:15.30] Baris teks lirik disini. Lirik akan otomatis tersimpan di peramban untuk lagu ini.
+            <p style={{ margin: '0 0 10px', fontSize: 11.5, color: '#94a3b8', lineHeight: 1.4 }}>
+              Format standar LRC: [00:15.30] Baris lirik. Lirik akan otomatis tersimpan di peramban untuk lagu ini.
             </p>
 
             <textarea
               value={manualText}
               onChange={(e) => setManualText(e.target.value)}
               placeholder="[00:00.00] Intro...&#10;[00:12.50] Baris pertama lagu..."
-              rows={8}
+              rows={6}
               className="cv-lyrics-textarea"
             />
 
@@ -318,7 +445,7 @@ export function AudioLyricsModal({
                 disabled={!manualText.trim()}
               >
                 <Check size={14} />
-                <span>Simpan Lirik</span>
+                <span>Simpan Lirik Manual</span>
               </button>
             </div>
           </div>
@@ -332,24 +459,55 @@ export function AudioLyricsModal({
               <div className="cv-lyrics-empty">
                 <Sparkles size={28} className="animate-spin" style={{ color: '#38bdf8', marginBottom: 10 }} />
                 <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>
-                  Memuat lirik tersinkronisasi...
+                  Mencari dan memuat lirik otomatis dari audio...
                 </p>
               </div>
             ) : lyricsData.lines.length === 0 ? (
               <div className="cv-lyrics-empty">
                 <Mic2 size={36} style={{ color: 'rgba(56, 189, 248, 0.4)', marginBottom: 12 }} />
                 <div style={{ fontSize: 14, fontWeight: 600, color: '#e2e8f0', marginBottom: 4 }}>
-                  Lirik belum tersedia
+                  Lirik belum ditemukan secara otomatis
                 </div>
-                <p style={{ margin: '0 0 16px', fontSize: 12, color: '#94a3b8', maxWidth: 320, lineHeight: 1.5 }}>
-                  Tambahkan berkas .lrc dengan nama yang sama di folder ini, atau klik tombol di bawah untuk menempel lirik manual.
+                <p style={{ margin: '0 0 16px', fontSize: 12, color: '#94a3b8', maxWidth: 360, lineHeight: 1.5 }}>
+                  Cari lirik lagu ini di database online atau tambahkan berkas lirik manual.
                 </p>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: 360, width: '100%', marginBottom: 12 }}>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleOnlineSearch()}
+                    placeholder="Contoh: Tulus - Teh Hijau"
+                    className="cv-lyrics-search-input"
+                  />
+                  <button
+                    onClick={() => handleOnlineSearch()}
+                    disabled={isSearchingOnline}
+                    className="cv-lyrics-save-btn"
+                  >
+                    {isSearchingOnline ? (
+                      <RefreshCw size={14} className="animate-spin" />
+                    ) : (
+                      <Search size={14} />
+                    )}
+                    <span>Cari</span>
+                  </button>
+                </div>
+
                 <button
                   onClick={() => setShowEditor(true)}
-                  className="cv-lyrics-save-btn"
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#94a3b8',
+                    borderRadius: 8,
+                    padding: '6px 14px',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                  }}
                 >
-                  <FileText size={14} />
-                  <span>Tambah Lirik Manual</span>
+                  Tempel Lirik Manual (.lrc)
                 </button>
               </div>
             ) : (

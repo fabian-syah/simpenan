@@ -21,6 +21,7 @@ import {
 } from '../../utils/mediaSession';
 import { AudioQueueDrawer } from './AudioQueueDrawer';
 import { AudioLyricsModal } from './AudioLyricsModal';
+import { parseAudioFilename } from '../../utils/lrcParser';
 
 interface AudioPlayerBarProps {
   file: FileRecord | null;
@@ -253,8 +254,9 @@ export function AudioPlayerBar({
   useEffect(() => {
     if (!file) return;
 
-    const displayTitle = metadata?.title || file.name.replace(/\.[^/.]+$/, '');
-    const displayArtist = metadata?.artist || 'Simpenan Audio';
+    const parsedFile = parseAudioFilename(file.name);
+    const displayTitle = metadata?.title || parsedFile.title || file.name.replace(/\.[^/.]+$/, '');
+    const displayArtist = metadata?.artist || parsedFile.artist || 'Simpenan Audio';
     const displayAlbum = metadata?.album || 'Koleksi Berkas';
 
     updateMediaSessionMetadata({
@@ -431,9 +433,10 @@ export function AudioPlayerBar({
 
   if (!file || !url) return null;
 
+  const parsedFile = parseAudioFilename(file.name);
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const displayTitle = metadata?.title || file.name;
-  const displayArtist = metadata?.artist || formatBytes(file.size_bytes);
+  const displayTitle = metadata?.title || parsedFile.title || file.name;
+  const displayArtist = metadata?.artist || parsedFile.artist || formatBytes(file.size_bytes);
 
   return (
     <>

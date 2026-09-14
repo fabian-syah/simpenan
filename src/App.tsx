@@ -2,7 +2,10 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Layout } from './components/Layout/Layout';
 import { FileList } from './components/FileExplorer/FileList';
 import { DropZone } from './components/Upload/DropZone';
+import type { FolderEntry } from './components/Upload/DropZone';
 import { UploadManager } from './components/Upload/UploadManager';
+import { UploadHistoryModal } from './components/Upload/UploadHistoryModal';
+import { DownloadManager } from './components/Download/DownloadManager';
 import { QuotaBar } from './components/Storage/QuotaBar';
 import { Modal } from './components/UI/Modal';
 import { PreviewModal } from './components/FileExplorer/PreviewModal';
@@ -21,6 +24,10 @@ import { useFiles } from './hooks/useFiles';
 import { useUpload } from './hooks/useUpload';
 import { useStorage } from './hooks/useStorage';
 import { useTheme } from './hooks/useTheme';
+import { useUploadHistory } from './hooks/useUploadHistory';
+import { useDownload } from './hooks/useDownload';
+import { useNotification } from './hooks/useNotification';
+import { Toaster } from 'sonner';
 
 export default function App() {
   // State
@@ -53,6 +60,7 @@ export default function App() {
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null);
+  const [showUploadHistory, setShowUploadHistory] = useState(false);
   const [feedbackContext, setFeedbackContext] = useState<{
     file?: FileRecord | null;
     error?: string | null;
@@ -87,6 +95,7 @@ export default function App() {
   }, []);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   // Hooks
   const { theme, setTheme } = useTheme();
@@ -107,6 +116,16 @@ export default function App() {
   } = useFiles('/', activeSection);
 
   const { quota, loading: quotaLoading, fetchQuota } = useStorage();
+
+  // Batch 4 hooks
+  const { history, addEntry, clearHistory } = useUploadHistory();
+  const { downloads, downloadAsZip, cancelDownload, removeDownload } = useDownload();
+  const {
+    requestPermission,
+    notifyUploadComplete,
+    notifyUploadFailed,
+    notifyBatchComplete,
+  } = useNotification();
 
   // Auth Listener
   useEffect(() => {
@@ -179,7 +198,9 @@ export default function App() {
   const {
     uploads,
     uploadFiles,
+    uploadFolder,
     removeUpload,
+    retryUpload,
     clearCompleted,
   } = useUpload(
     currentPath,
@@ -189,7 +210,14 @@ export default function App() {
       invalidateCache();
       fetchQuota();
     },
-    handleUploadError
+    handleUploadError,
+    {
+      onAddHistory: addEntry,
+      onNotifyComplete: notifyUploadComplete,
+      onNotifyFailed: notifyUploadFailed,
+      onNotifyBatch: notifyBatchComplete,
+      onRequestPermission: requestPermission,
+    }
   );
 
   // Handlers
@@ -248,6 +276,14 @@ export default function App() {
     fileInputRef.current?.click();
   }, [user, handleOpenAuth]);
 
+  const handleUploadFolderClick = useCallback(() => {
+    if (!user) {
+      handleOpenAuth('login');
+      return;
+    }
+    folderInputRef.current?.click();
+  }, [user, handleOpenAuth]);
+
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) {
       handleOpenAuth('login');
@@ -259,6 +295,21 @@ export default function App() {
     }
   }, [user, handleOpenAuth, uploadFiles]);
 
+  const handleFolderInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user) {
+      handleOpenAuth('login');
+      return;
+    }
+    if (e.target.files && e.target.files.length > 0) {
+      const entries: FolderEntry[] = Array.from(e.target.files).map(f => ({
+        file: f,
+        relativePath: (f as any).webkitRelativePath || f.name,
+      }));
+      uploadFolder(entries);
+      e.target.value = '';
+    }
+  }, [user, handleOpenAuth, uploadFolder]);
+
   const handleFilesDropped = useCallback((fileList: FileList) => {
     if (!user) {
       handleOpenAuth('login');
@@ -266,6 +317,19 @@ export default function App() {
     }
     uploadFiles(fileList);
   }, [user, handleOpenAuth, uploadFiles]);
+
+  const handleFolderDropped = useCallback((entries: FolderEntry[]) => {
+    if (!user) {
+      handleOpenAuth('login');
+      return;
+    }
+    uploadFolder(entries);
+  }, [user, handleOpenAuth, uploadFolder]);
+
+  const handleDownloadZip = useCallback((selectedFiles: FileRecord[], zipName?: string) => {
+    const name = zipName || (selectedFiles.length === 1 ? selectedFiles[0].name : 'simpenan-download');
+    downloadAsZip(selectedFiles, name);
+  }, [downloadAsZip]);
 
   const handlePlayAudio = useCallback((file: FileRecord) => {
     const audioList = files.filter(f => !f.is_folder && getFileCategory(f.mime_type, false) === 'audio');
@@ -295,7 +359,7 @@ export default function App() {
   }, []);
 
   return (
-    <DropZone onFilesDropped={handleFilesDropped}>
+    <DropZone onFilesDropped={handleFilesDropped} onFolderDropped={handleFolderDropped}>
       <Layout
         currentPath={currentPath}
         breadcrumbs={breadcrumbs}
@@ -363,6 +427,8 @@ export default function App() {
           onShare={handleShare}
           onPreview={setPreviewFile}
           onFolderHover={prefetchFolder}
+          onDownloadZip={handleDownloadZip}
+          onUploadFolder={handleUploadFolderClick}
         />
       </Layout>
 
@@ -371,6 +437,15 @@ export default function App() {
         uploads={uploads}
         onClearCompleted={clearCompleted}
         onRemove={removeUpload}
+        onRetry={retryUpload}
+        onShowHistory={() => setShowUploadHistory(true)}
+      />
+
+      {/* Download progress panel */}
+      <DownloadManager
+        downloads={downloads}
+        onCancel={cancelDownload}
+        onRemove={removeDownload}
       />
 
       {/* Hidden file input */}
@@ -380,6 +455,38 @@ export default function App() {
         multiple
         style={{ display: 'none' }}
         onChange={handleFileInputChange}
+      />
+
+      {/* Hidden folder input */}
+      <input
+        ref={folderInputRef}
+        type="file"
+        // @ts-expect-error webkitdirectory is non-standard but widely supported
+        webkitdirectory=""
+        directory=""
+        multiple
+        style={{ display: 'none' }}
+        onChange={handleFolderInputChange}
+      />
+
+      {/* Sonner Toast Provider */}
+      <Toaster
+        position="top-right"
+        richColors
+        toastOptions={{
+          style: {
+            borderRadius: 12,
+            fontSize: 13,
+          },
+        }}
+      />
+
+      {/* Upload History Modal */}
+      <UploadHistoryModal
+        isOpen={showUploadHistory}
+        onClose={() => setShowUploadHistory(false)}
+        history={history}
+        onClear={clearHistory}
       />
 
       {/* Modals */}
