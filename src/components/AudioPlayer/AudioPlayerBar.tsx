@@ -854,6 +854,9 @@ export function AudioPlayerBar({
             setCurrentTime(sec);
           }
         }}
+        onTogglePlay={togglePlay}
+        onNext={handleNext}
+        onPrevious={handlePrevious}
         siblingFiles={siblingFiles}
       />
     </>

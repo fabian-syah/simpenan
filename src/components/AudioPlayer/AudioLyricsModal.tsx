@@ -1,12 +1,14 @@
 // ============================================================
-// AudioLyricsModal Component
-// Synchronized lyrics viewer with auto-scroll and ambient glassmorphism
-// Automatic online lyrics lookup (LRCLIB), ID3 extraction, and manual LRC
+// AudioLyricsModal Component — Spotify-Style Sing-Along Lyrics
+// Fullscreen / Expanded Karaoke View, Synchronized Auto-Scroll,
+// Large Legible Typography, Embedded Playback Bar & LRCLIB Integration
 // ============================================================
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Mic2, X, Upload, FileText, Check, RotateCcw,
-  Music, Sparkles, Search, RefreshCw
+  X, Upload, FileText, Check, RotateCcw, RotateCw,
+  Music, Sparkles, Search, RefreshCw, Play, Pause,
+  SkipBack, SkipForward, Maximize2, Minimize2,
+  AlignLeft, AlignCenter
 } from 'lucide-react';
 import type { FileRecord } from '../../types';
 import type { AudioMetadata } from '../../utils/id3Reader';
@@ -26,7 +28,17 @@ interface AudioLyricsModalProps {
   duration: number;
   isPlaying: boolean;
   onSeek: (seconds: number) => void;
+  onTogglePlay?: () => void;
+  onNext?: () => void;
+  onPrevious?: () => void;
   siblingFiles?: FileRecord[];
+}
+
+function formatTime(secs: number): string {
+  if (isNaN(secs) || secs < 0) return '00:00';
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
 export function AudioLyricsModal({
@@ -36,7 +48,11 @@ export function AudioLyricsModal({
   metadata,
   currentTime,
   duration,
+  isPlaying,
   onSeek,
+  onTogglePlay,
+  onNext,
+  onPrevious,
   siblingFiles = [],
 }: AudioLyricsModalProps) {
   const [lyricsData, setLyricsData] = useState<ParsedLyrics>({ lines: [] });
@@ -49,6 +65,10 @@ export function AudioLyricsModal({
     'id3' | 'online_synced' | 'online_plain' | 'local_file' | 'custom' | null
   >(null);
   const [userScrolled, setUserScrolled] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [textAlign, setTextAlign] = useState<'left' | 'center'>(() => {
+    return (localStorage.getItem('cv_lyrics_align') as 'left' | 'center') || 'left';
+  });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const activeLineRef = useRef<HTMLDivElement>(null);
@@ -57,6 +77,14 @@ export function AudioLyricsModal({
   const parsedFile = parseAudioFilename(file?.name || '');
   const displayTitle = metadata?.title || parsedFile.title || file?.name.replace(/\.[^/.]+$/, '');
   const displayArtist = metadata?.artist || parsedFile.artist || 'Simpenan Audio';
+
+  const handleToggleAlign = () => {
+    const next = textAlign === 'left' ? 'center' : 'left';
+    setTextAlign(next);
+    try {
+      localStorage.setItem('cv_lyrics_align', next);
+    } catch {}
+  };
 
   // Load lyrics on mount or track change
   useEffect(() => {
@@ -112,7 +140,7 @@ export function AudioLyricsModal({
             }
           }
         } catch {
-          // Ignore fetch error, continue
+          // Ignore fetch error
         }
       }
 
@@ -251,9 +279,14 @@ export function AudioLyricsModal({
 
   if (!isOpen) return null;
 
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
   return (
-    <div className="cv-lyrics-overlay" onClick={onClose}>
-      {/* Dynamic Blurred Ambient Backdrop */}
+    <div
+      className={`cv-lyrics-overlay ${isFullscreen ? 'fullscreen-mode' : ''}`}
+      onClick={onClose}
+    >
+      {/* Ambient Artwork Backdrop */}
       {metadata?.coverUrl ? (
         <div
           className="cv-lyrics-backdrop"
@@ -263,26 +296,30 @@ export function AudioLyricsModal({
         <div className="cv-lyrics-backdrop-gradient" />
       )}
 
+      {/* Spotify Dark Gradient Vignette */}
+      <div className="cv-lyrics-vignette" />
+
       <div
-        className="cv-lyrics-modal"
+        className={`cv-lyrics-modal spotify-style ${isFullscreen ? 'fullscreen' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="cv-lyrics-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+        {/* Top Header Bar */}
+        <div className="cv-lyrics-header spotify-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
             <div
               style={{
-                width: 44,
-                height: 44,
-                borderRadius: 10,
+                width: 48,
+                height: 48,
+                borderRadius: 12,
                 overflow: 'hidden',
-                background: 'rgba(56, 189, 248, 0.15)',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#38bdf8',
                 flexShrink: 0,
+                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.4)',
               }}
             >
               {metadata?.coverUrl ? (
@@ -292,19 +329,20 @@ export function AudioLyricsModal({
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               ) : (
-                <Music size={22} />
+                <Music size={24} />
               )}
             </div>
 
             <div style={{ minWidth: 0 }}>
               <div
                 style={{
-                  fontSize: 16,
-                  fontWeight: 700,
+                  fontSize: 17,
+                  fontWeight: 800,
                   color: '#ffffff',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
+                  letterSpacing: '-0.02em',
                 }}
                 title={displayTitle}
               >
@@ -320,7 +358,8 @@ export function AudioLyricsModal({
               >
                 <span
                   style={{
-                    fontSize: 12.5,
+                    fontSize: 13,
+                    fontWeight: 500,
                     color: '#94a3b8',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
@@ -334,10 +373,10 @@ export function AudioLyricsModal({
                   <span className="cv-lyrics-badge synced">Tersinkronisasi Otomatis</span>
                 )}
                 {lyricsSource === 'online_plain' && (
-                  <span className="cv-lyrics-badge plain">Lirik Online</span>
+                  <span className="cv-lyrics-badge plain">Lirik Teks</span>
                 )}
                 {lyricsSource === 'id3' && (
-                  <span className="cv-lyrics-badge id3">Dari Tag Audio</span>
+                  <span className="cv-lyrics-badge id3">Dari Tag Berkas</span>
                 )}
                 {lyricsSource === 'local_file' && (
                   <span className="cv-lyrics-badge local">Berkas .lrc</span>
@@ -346,7 +385,18 @@ export function AudioLyricsModal({
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Action Tools */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {/* Text Alignment Toggle (Left / Center) */}
+            <button
+              onClick={handleToggleAlign}
+              className="cv-lyrics-icon-btn"
+              title={textAlign === 'left' ? 'Teks: Rata Kiri' : 'Teks: Rata Tengah'}
+            >
+              {textAlign === 'left' ? <AlignLeft size={16} /> : <AlignCenter size={16} />}
+            </button>
+
+            {/* Manage / Search Lyrics Toggle */}
             <button
               onClick={() => setShowEditor(!showEditor)}
               className="cv-lyrics-icon-btn"
@@ -354,13 +404,23 @@ export function AudioLyricsModal({
             >
               <FileText size={16} />
               <span className="cv-desktop-only" style={{ fontSize: 12 }}>
-                {showEditor ? 'Tutup Kelola' : 'Kelola / Cari'}
+                {showEditor ? 'Tutup' : 'Cari / Edit'}
               </span>
             </button>
 
+            {/* Fullscreen Toggle */}
+            <button
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="cv-lyrics-icon-btn cv-desktop-only"
+              title={isFullscreen ? 'Keluar Layar Penuh' : 'Tampilan Layar Penuh'}
+            >
+              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
+
+            {/* Close Button */}
             <button
               onClick={onClose}
-              className="cv-lyrics-icon-btn"
+              className="cv-lyrics-icon-btn close"
               title="Tutup Tampilan Lirik"
             >
               <X size={18} />
@@ -368,11 +428,12 @@ export function AudioLyricsModal({
           </div>
         </div>
 
-        {/* Resync Button Pill (shown when user scrolled manually) */}
-        {userScrolled && lyricsData.lines.length > 0 && (
+        {/* Floating Resync Button (Bottom Right) */}
+        {userScrolled && lyricsData.lines.length > 0 && !showEditor && (
           <button
             onClick={handleResync}
-            className="cv-lyrics-resync-pill"
+            className="cv-lyrics-resync-pill spotify"
+            title="Kembali ke baris lirik yang sedang diputar"
           >
             <RotateCcw size={13} />
             <span>Sinkronkan Ulang</span>
@@ -382,9 +443,9 @@ export function AudioLyricsModal({
         {/* Content Body */}
         {showEditor ? (
           <div className="cv-lyrics-editor-panel">
-            {/* Quick Online Search */}
-            <div style={{ marginBottom: 18, background: 'rgba(255, 255, 255, 0.04)', padding: 14, borderRadius: 12, border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc', marginBottom: 6 }}>
+            {/* Online Search Box */}
+            <div style={{ marginBottom: 16, background: 'rgba(255, 255, 255, 0.05)', padding: 14, borderRadius: 14, border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc', marginBottom: 6 }}>
                 Cari Lirik Online Otomatis
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -411,18 +472,18 @@ export function AudioLyricsModal({
               </div>
             </div>
 
-            {/* Manual Paste or File Upload */}
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc', marginBottom: 6 }}>
+            {/* Manual Paste */}
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc', marginBottom: 6 }}>
               Tempel atau Unggah Berkas Lirik (.lrc)
             </div>
             <p style={{ margin: '0 0 10px', fontSize: 11.5, color: '#94a3b8', lineHeight: 1.4 }}>
-              Format standar LRC: [00:15.30] Baris lirik. Lirik akan otomatis tersimpan di peramban untuk lagu ini.
+              Format standar: [00:15.30] Baris lirik. Lirik akan otomatis tersimpan di peramban untuk lagu ini.
             </p>
 
             <textarea
               value={manualText}
               onChange={(e) => setManualText(e.target.value)}
-              placeholder="[00:00.00] Intro...&#10;[00:12.50] Baris pertama lagu..."
+              placeholder="[00:00.00] Intro...&#10;[00:12.50] Baris lirik lagu..."
               rows={6}
               className="cv-lyrics-textarea"
             />
@@ -453,26 +514,26 @@ export function AudioLyricsModal({
           <div
             ref={containerRef}
             onScroll={handleContainerScroll}
-            className="cv-lyrics-scroll-container"
+            className={`cv-lyrics-scroll-container spotify ${textAlign === 'center' ? 'text-center' : 'text-left'}`}
           >
             {loading ? (
               <div className="cv-lyrics-empty">
-                <Sparkles size={28} className="animate-spin" style={{ color: '#38bdf8', marginBottom: 10 }} />
-                <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>
-                  Mencari dan memuat lirik otomatis dari audio...
+                <Sparkles size={32} className="animate-spin" style={{ color: '#38bdf8', marginBottom: 12 }} />
+                <p style={{ margin: 0, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>
+                  Mencari dan menyinkronkan lirik lagu...
                 </p>
               </div>
             ) : lyricsData.lines.length === 0 ? (
               <div className="cv-lyrics-empty">
-                <Mic2 size={36} style={{ color: 'rgba(56, 189, 248, 0.4)', marginBottom: 12 }} />
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#e2e8f0', marginBottom: 4 }}>
+                <Music size={40} style={{ color: 'rgba(56, 189, 248, 0.4)', marginBottom: 14 }} />
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc', marginBottom: 6 }}>
                   Lirik belum ditemukan secara otomatis
                 </div>
-                <p style={{ margin: '0 0 16px', fontSize: 12, color: '#94a3b8', maxWidth: 360, lineHeight: 1.5 }}>
-                  Cari lirik lagu ini di database online atau tambahkan berkas lirik manual.
+                <p style={{ margin: '0 0 18px', fontSize: 12.5, color: '#94a3b8', maxWidth: 380, lineHeight: 1.5 }}>
+                  Cari lirik lagu ini di database online atau tambahkan lirik manual.
                 </p>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: 360, width: '100%', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: 380, width: '100%', marginBottom: 14 }}>
                   <input
                     type="text"
                     value={searchQuery}
@@ -502,8 +563,8 @@ export function AudioLyricsModal({
                     border: '1px solid rgba(255, 255, 255, 0.15)',
                     color: '#94a3b8',
                     borderRadius: 8,
-                    padding: '6px 14px',
-                    fontSize: 12,
+                    padding: '8px 16px',
+                    fontSize: 12.5,
                     cursor: 'pointer',
                   }}
                 >
@@ -511,7 +572,7 @@ export function AudioLyricsModal({
                 </button>
               </div>
             ) : (
-              <div className="cv-lyrics-lines-wrapper">
+              <div className={`cv-lyrics-lines-wrapper spotify ${textAlign === 'center' ? 'align-center' : 'align-left'}`}>
                 {lyricsData.lines.map((line, idx) => {
                   const isActive = idx === activeIndex;
                   const isPast = idx < activeIndex;
@@ -521,7 +582,7 @@ export function AudioLyricsModal({
                       key={idx}
                       ref={isActive ? activeLineRef : undefined}
                       onClick={() => onSeek(line.time)}
-                      className={`cv-lyric-line ${isActive ? 'active' : ''} ${isPast ? 'past' : ''}`}
+                      className={`cv-lyric-line-spotify ${isActive ? 'active' : ''} ${isPast ? 'past' : ''}`}
                     >
                       {line.text || '...'}
                     </div>
@@ -531,6 +592,109 @@ export function AudioLyricsModal({
             )}
           </div>
         )}
+
+        {/* Spotify Embedded Bottom Playback Controls Bar */}
+        <div className="cv-lyrics-bottom-bar">
+          {/* Scrubber Progress Bar */}
+          <div className="cv-lyrics-scrubber-row">
+            <span className="cv-lyrics-time-label">{formatTime(currentTime)}</span>
+            <div className="cv-lyrics-scrubber-track">
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  height: 4,
+                  borderRadius: 99,
+                  background: 'rgba(255, 255, 255, 0.2)',
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  width: `${progressPercent}%`,
+                  height: 4,
+                  borderRadius: 99,
+                  background: 'linear-gradient(90deg, #0284c7, #38bdf8)',
+                  boxShadow: '0 0 10px rgba(56, 189, 248, 0.8)',
+                }}
+              />
+              <input
+                type="range"
+                min={0}
+                max={duration || 100}
+                step={0.1}
+                value={currentTime}
+                onChange={(e) => onSeek(parseFloat(e.target.value))}
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  width: '100%',
+                  height: 16,
+                  opacity: 0,
+                  cursor: 'pointer',
+                  zIndex: 2,
+                }}
+              />
+            </div>
+            <span className="cv-lyrics-time-label">{formatTime(duration)}</span>
+          </div>
+
+          {/* Playback Buttons */}
+          <div className="cv-lyrics-controls-row">
+            {onPrevious && (
+              <button
+                onClick={onPrevious}
+                className="cv-lyrics-btn"
+                title="Lagu Sebelumnya"
+              >
+                <SkipBack size={18} />
+              </button>
+            )}
+
+            <button
+              onClick={() => onSeek(Math.max(0, currentTime - 10))}
+              className="cv-lyrics-btn cv-desktop-only"
+              title="Mundur 10 Detik"
+            >
+              <RotateCcw size={16} />
+            </button>
+
+            {onTogglePlay && (
+              <button
+                onClick={onTogglePlay}
+                className="cv-lyrics-play-btn"
+                title={isPlaying ? 'Jeda' : 'Putar'}
+              >
+                {isPlaying ? (
+                  <Pause size={20} fill="#0f172a" color="#0f172a" />
+                ) : (
+                  <Play size={20} fill="#0f172a" color="#0f172a" style={{ marginLeft: 2 }} />
+                )}
+              </button>
+            )}
+
+            <button
+              onClick={() => onSeek(Math.min(duration, currentTime + 10))}
+              className="cv-lyrics-btn cv-desktop-only"
+              title="Maju 10 Detik"
+            >
+              <RotateCw size={16} />
+            </button>
+
+            {onNext && (
+              <button
+                onClick={onNext}
+                className="cv-lyrics-btn"
+                title="Lagu Berikutnya"
+              >
+                <SkipForward size={18} />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
