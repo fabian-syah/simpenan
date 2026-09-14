@@ -1,6 +1,6 @@
 import { X, Check, AlertCircle, Loader } from 'lucide-react';
 import type { UploadTask } from '../../types';
-import { formatBytes, formatProviderName } from '../../types';
+import { formatBytes } from '../../types';
 
 interface UploadManagerProps {
   uploads: UploadTask[];
@@ -69,11 +69,6 @@ function UploadItem({ upload, onRemove }: { upload: UploadTask; onRemove: (id: s
       <div className="cv-upload-item-header">
         <span className="cv-upload-item-name">{upload.fileName}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {upload.provider && (
-            <span className={`cv-provider-badge ${upload.provider?.startsWith('gdrive') ? 'gdrive' : upload.provider}`}>
-              {formatProviderName(upload.provider)}
-            </span>
-          )}
           {upload.status === 'complete' && <Check size={14} style={{ color: 'var(--cv-success)' }} />}
           {upload.status === 'failed' && (
             <button className="cv-btn cv-btn-ghost cv-btn-icon" onClick={() => onRemove(upload.id)} style={{ padding: 2 }}>

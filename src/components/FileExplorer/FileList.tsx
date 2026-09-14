@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { FileRecord } from '../../types';
-import { getFileCategory, formatBytes, formatDate, formatProviderName } from '../../types';
+import { getFileCategory, formatBytes, formatDate } from '../../types';
 import { getDownloadUrl } from '../../lib/api';
 import { useScrollReveal } from '../../hooks/useScrollReveal';
 import {
@@ -636,9 +636,6 @@ export function FileList({
             <span className="cv-sortable-th" onClick={() => handleSortChange('updated')}>
               Dimodifikasi {sortField === 'updated' && (sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
             </span>
-            <span className="cv-sortable-th" onClick={() => handleSortChange('type')}>
-              Penyimpanan {sortField === 'type' && (sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
-            </span>
           </div>
           {sortedAndFilteredFiles.map((file, idx) => {
             const childCount = file.is_folder
@@ -1151,11 +1148,9 @@ function FileCard({
         <span className="cv-file-meta">
           {file.is_folder ? (childCount && childCount > 0 ? `${childCount} item` : 'Folder') : formatBytes(file.size_bytes)}
         </span>
-        {file.provider_id && (
-          <span className={`cv-provider-badge ${file.provider_id?.startsWith('gdrive') ? 'gdrive' : file.provider_id}`}>
-            {formatProviderName(file.provider_id)}
-          </span>
-        )}
+        <span className="cv-file-meta" style={{ fontSize: 11.5 }}>
+          {formatDate(file.updated_at)}
+        </span>
       </div>
     </div>
   );
@@ -1313,15 +1308,6 @@ function FileRow({
       </span>
       <span className="cv-file-meta" style={{ fontSize: 13 }}>
         {formatDate(file.updated_at)}
-      </span>
-      <span>
-        {file.provider_id ? (
-          <span className={`cv-provider-badge ${file.provider_id?.startsWith('gdrive') ? 'gdrive' : file.provider_id}`}>
-            {formatProviderName(file.provider_id)}
-          </span>
-        ) : (
-          <span className="cv-file-meta">—</span>
-        )}
       </span>
     </div>
   );
