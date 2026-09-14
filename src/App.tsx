@@ -14,6 +14,7 @@ import { AuthModal } from './components/Auth/AuthModal';
 import { UpgradeModal } from './components/Pricing/UpgradeModal';
 import { LegalModal } from './components/Legal/LegalModal';
 import type { FileRecord, TargetStorageOption } from './types';
+import { getFileCategory } from './types';
 import { getDownloadUrl, checkPaymentStatus } from './lib/api';
 import { supabase } from './lib/supabase';
 import { useFiles } from './hooks/useFiles';
@@ -43,6 +44,8 @@ export default function App() {
   const [previewFile, setPreviewFile] = useState<FileRecord | null>(null);
   const [shareModalFile, setShareModalFile] = useState<FileRecord | null>(null);
   const [currentAudio, setCurrentAudio] = useState<{ file: FileRecord; url: string } | null>(null);
+  const [audioQueue, setAudioQueue] = useState<FileRecord[]>([]);
+  const [currentAudioIndex, setCurrentAudioIndex] = useState<number>(0);
   const [showManageStorage, setShowManageStorage] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -264,6 +267,33 @@ export default function App() {
     uploadFiles(fileList);
   }, [user, handleOpenAuth, uploadFiles]);
 
+  const handlePlayAudio = useCallback((file: FileRecord) => {
+    const audioList = files.filter(f => !f.is_folder && getFileCategory(f.mime_type, false) === 'audio');
+    const playlist = audioList.length > 0 ? audioList : [file];
+    const fileIndex = playlist.findIndex(f => f.id === file.id);
+    const activeIdx = fileIndex >= 0 ? fileIndex : 0;
+
+    setAudioQueue(playlist);
+    setCurrentAudioIndex(activeIdx);
+    setCurrentAudio({ file: playlist[activeIdx], url: getDownloadUrl(playlist[activeIdx].id) });
+  }, [files]);
+
+  const handleSelectAudioTrack = useCallback((index: number) => {
+    if (index >= 0 && index < audioQueue.length) {
+      const selected = audioQueue[index];
+      setCurrentAudioIndex(index);
+      setCurrentAudio({ file: selected, url: getDownloadUrl(selected.id) });
+    }
+  }, [audioQueue]);
+
+  const handleUpdateAudioQueue = useCallback((newQueue: FileRecord[], newIndex: number) => {
+    setAudioQueue(newQueue);
+    setCurrentAudioIndex(newIndex);
+    if (newQueue[newIndex]) {
+      setCurrentAudio({ file: newQueue[newIndex], url: getDownloadUrl(newQueue[newIndex].id) });
+    }
+  }, []);
+
   return (
     <DropZone onFilesDropped={handleFilesDropped}>
       <Layout
@@ -327,9 +357,7 @@ export default function App() {
           onMoveFiles={async (fileIds, targetPath) => {
             await moveFiles(fileIds, targetPath);
           }}
-          onPlayAudio={(file) => {
-            setCurrentAudio({ file, url: getDownloadUrl(file.id) });
-          }}
+          onPlayAudio={handlePlayAudio}
           onToggleStar={toggleStar}
           onRename={(id, name) => setRenameTarget({ id, name })}
           onShare={handleShare}
@@ -417,6 +445,11 @@ export default function App() {
           file={currentAudio.file}
           url={currentAudio.url}
           onClose={() => setCurrentAudio(null)}
+          playlist={audioQueue}
+          currentIndex={currentAudioIndex}
+          onSelectTrack={handleSelectAudioTrack}
+          onUpdateQueue={handleUpdateAudioQueue}
+          siblingFiles={files}
         />
       )}
 
