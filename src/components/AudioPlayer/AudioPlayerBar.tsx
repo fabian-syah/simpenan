@@ -869,18 +869,19 @@ export function AudioPlayerBar({
               style={{ width: 1, height: 20, background: 'rgba(255, 255, 255, 0.15)' }}
             />
 
-            {/* Mobile Expand Full Player Sheet Button */}
+            {/* Expand Full Player Sheet Button (Available on Desktop & Mobile) */}
             <button
               onClick={() => setShowMobileNowPlaying(true)}
-              className="cv-mobile-only"
               style={{
                 ...btnStyle,
                 color: '#38bdf8',
-                padding: 4,
+                background: 'rgba(56, 189, 248, 0.12)',
+                borderRadius: 8,
+                padding: '4px 6px',
               }}
               title="Perluas Layar Pemutar Musik"
             >
-              <ChevronUp size={19} />
+              <ChevronUp size={18} />
             </button>
 
             {/* Dismiss / Close Player */}
