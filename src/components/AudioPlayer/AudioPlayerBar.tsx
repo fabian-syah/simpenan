@@ -24,6 +24,7 @@ import { AudioLyricsModal } from './AudioLyricsModal';
 import { MobileNowPlayingModal } from './MobileNowPlayingModal';
 import { parseAudioFilename } from '../../utils/lrcParser';
 import { useAudioLyrics } from '../../utils/useAudioLyrics';
+import { fetchOnlineCover, type OnlineCoverResult } from '../../utils/onlineCover';
 
 interface AudioPlayerBarProps {
   file: FileRecord | null;
@@ -98,6 +99,29 @@ export function AudioPlayerBar({
   // Batch 3: ID3 Metadata & Album Cover
   const [metadata, setMetadata] = useState<AudioMetadata | null>(null);
   const [prevCoverUrl, setPrevCoverUrl] = useState<string | null>(null);
+  // Online iTunes Artwork & Enriched Metadata
+  const [onlineCover, setOnlineCover] = useState<OnlineCoverResult | null>(null);
+
+  // Auto-fetch online artwork if ID3 tag does not contain an embedded cover
+  useEffect(() => {
+    if (!file) {
+      setOnlineCover(null);
+      return;
+    }
+
+    let isCancelled = false;
+    const parsed = parseAudioFilename(file.name);
+
+    fetchOnlineCover(parsed.cleanQuery, parsed.artist, parsed.title, file.id).then((res) => {
+      if (!isCancelled && res) {
+        setOnlineCover(res);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [file?.id, file?.name]);
 
   // Active queue state
   const [queue, setQueue] = useState<FileRecord[]>(playlist);
@@ -310,15 +334,16 @@ export function AudioPlayerBar({
     if (!file) return;
 
     const parsedFile = parseAudioFilename(file.name);
-    const displayTitle = metadata?.title || parsedFile.title || file.name.replace(/\.[^/.]+$/, '');
-    const displayArtist = metadata?.artist || parsedFile.artist || 'Simpenan Audio';
-    const displayAlbum = metadata?.album || 'Koleksi Berkas';
+    const displayTitle = metadata?.title || onlineCover?.title || parsedFile.title || file.name.replace(/\.[^/.]+$/, '');
+    const displayArtist = metadata?.artist || onlineCover?.artist || parsedFile.artist || 'Simpenan Audio';
+    const displayAlbum = metadata?.album || onlineCover?.album || 'Koleksi Berkas';
+    const displayCoverUrl = metadata?.coverUrl || onlineCover?.coverUrl || null;
 
     updateMediaSessionMetadata({
       title: displayTitle,
       artist: displayArtist,
       album: displayAlbum,
-      artwork: metadata?.coverUrl || null,
+      artwork: displayCoverUrl,
     });
 
     const cleanupHandlers = setupMediaSessionActionHandlers({
@@ -339,7 +364,7 @@ export function AudioPlayerBar({
     return () => {
       cleanupHandlers();
     };
-  }, [file, metadata, togglePlay, handlePrevious, handleNext]);
+  }, [file, metadata, onlineCover, togglePlay, handlePrevious, handleNext]);
 
   // Update MediaSession Playback State
   useEffect(() => {
@@ -490,8 +515,10 @@ export function AudioPlayerBar({
 
   const parsedFile = parseAudioFilename(file.name);
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const displayTitle = metadata?.title || parsedFile.title || file.name;
-  const displayArtist = metadata?.artist || parsedFile.artist || formatBytes(file.size_bytes);
+  const displayTitle = metadata?.title || onlineCover?.title || parsedFile.title || file.name.replace(/\.[^/.]+$/, '');
+  const displayArtist = metadata?.artist || onlineCover?.artist || parsedFile.artist || formatBytes(file.size_bytes);
+  const displayCoverUrl = metadata?.coverUrl || onlineCover?.coverUrl || null;
+  const displayAlbum = metadata?.album || onlineCover?.album || 'Koleksi Berkas';
 
   return (
     <>
@@ -576,9 +603,9 @@ export function AudioPlayerBar({
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
               }}
             >
-              {metadata?.coverUrl ? (
+              {displayCoverUrl ? (
                 <img
-                  src={metadata.coverUrl}
+                  src={displayCoverUrl}
                   alt="Cover"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
@@ -919,7 +946,13 @@ export function AudioPlayerBar({
         isOpen={showLyrics}
         onClose={() => setShowLyrics(false)}
         file={file}
-        metadata={metadata}
+        metadata={
+          metadata
+            ? { ...metadata, coverUrl: displayCoverUrl || undefined, title: displayTitle, artist: displayArtist, album: displayAlbum }
+            : (displayCoverUrl
+                ? { title: displayTitle, artist: displayArtist, album: displayAlbum, coverUrl: displayCoverUrl }
+                : null)
+        }
         currentTime={currentTime}
         duration={duration}
         isPlaying={isPlaying}
@@ -975,6 +1008,10 @@ export function AudioPlayerBar({
         sleepTimerMinutes={sleepTimerMinutes}
         onSetSleepTimer={(mins) => setSleepTimerMinutes(mins)}
         sleepTimerRemainingSecs={sleepTimerRemainingSecs}
+        coverUrl={displayCoverUrl}
+        displayTitle={displayTitle}
+        displayArtist={displayArtist}
+        displayAlbum={displayAlbum}
       />
     </>
   );

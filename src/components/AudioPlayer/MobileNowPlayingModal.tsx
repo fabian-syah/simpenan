@@ -9,7 +9,7 @@ import {
   ChevronDown, Play, Pause, SkipBack, SkipForward,
   RotateCcw, RotateCw, Shuffle, Repeat, Repeat1,
   ListMusic, Mic2, Clock, Share2, Music, Disc,
-  Check, ExternalLink, HardDrive, FileAudio
+  Check, ExternalLink, FileAudio
 } from 'lucide-react';
 import type { FileRecord } from '../../types';
 import { formatBytes } from '../../types';
@@ -45,6 +45,10 @@ interface MobileNowPlayingModalProps {
   onSetSleepTimer: (minutes: number | null) => void;
   sleepTimerRemainingSecs: number | null;
   onShareTrack?: () => void;
+  coverUrl?: string | null;
+  displayTitle?: string;
+  displayArtist?: string;
+  displayAlbum?: string;
 }
 
 function formatAudioTime(seconds: number): string {
@@ -82,6 +86,10 @@ export function MobileNowPlayingModal({
   onSetSleepTimer,
   sleepTimerRemainingSecs,
   onShareTrack,
+  coverUrl,
+  displayTitle,
+  displayArtist,
+  displayAlbum,
 }: MobileNowPlayingModalProps) {
   const [showSleepMenu, setShowSleepMenu] = useState(false);
   const [copiedShare, setCopiedShare] = useState(false);
@@ -101,9 +109,10 @@ export function MobileNowPlayingModal({
 
   if (!isOpen || !file) return null;
 
-  const displayTitle = metadata?.title || file.name.replace(/\.[^/.]+$/, '');
-  const displayArtist = metadata?.artist || 'Simpenan Audio';
-  const displayAlbum = metadata?.album || 'Koleksi Cloud';
+  const title = displayTitle || metadata?.title || file.name.replace(/\.[^/.]+$/, '');
+  const artist = displayArtist || metadata?.artist || 'Simpenan Audio';
+  const album = displayAlbum || metadata?.album || 'Koleksi Musik';
+  const activeCover = coverUrl || metadata?.coverUrl || null;
 
   // Format extension
   const extension = file.name.split('.').pop()?.toUpperCase() || 'AUDIO';
@@ -142,10 +151,10 @@ export function MobileNowPlayingModal({
   return (
     <div className="cv-mobile-player-overlay">
       {/* Ambient Glow Backdrop */}
-      {metadata?.coverUrl ? (
+      {activeCover ? (
         <div
           className="cv-mobile-player-backdrop"
-          style={{ backgroundImage: `url(${metadata.coverUrl})` }}
+          style={{ backgroundImage: `url(${activeCover})` }}
         />
       ) : (
         <div className="cv-mobile-player-backdrop-ambient" />
@@ -168,8 +177,8 @@ export function MobileNowPlayingModal({
 
           <div className="cv-mobile-player-header-title">
             <span className="cv-mobile-player-header-sub">SEDANG DIPUTAR</span>
-            <span className="cv-mobile-player-header-main" title={file.parent_path || 'Simpenan Drive'}>
-              {file.parent_path ? file.parent_path.replace(/^\//, '') : 'Simpenan Musik'}
+            <span className="cv-mobile-player-header-main" title={file.parent_path || 'Simpenan Musik'}>
+              {(file.parent_path ? file.parent_path.replace(/^\//, '') : 'Simpenan Musik').replace(/gdrive[_\-\s]*\d*/gi, 'Koleksi Musik')}
             </span>
           </div>
 
@@ -223,9 +232,9 @@ export function MobileNowPlayingModal({
           {/* Centered Large Artwork Section */}
           <div className="cv-mobile-artwork-wrapper">
             <div className="cv-mobile-artwork-card">
-              {metadata?.coverUrl ? (
+              {activeCover ? (
                 <img
-                  src={metadata.coverUrl}
+                  src={activeCover}
                   alt="Cover Album"
                   className="cv-mobile-artwork-img"
                 />
@@ -248,17 +257,17 @@ export function MobileNowPlayingModal({
             </div>
           </div>
 
-          {/* Track Info Row & Cloud Badges */}
+          {/* Track Info Row & Format Badges */}
           <div className="cv-mobile-info-section">
             <div style={{ minWidth: 0, flex: 1 }}>
-              <h1 className="cv-mobile-track-title" title={displayTitle}>
-                {displayTitle}
+              <h1 className="cv-mobile-track-title" title={title}>
+                {title}
               </h1>
-              <p className="cv-mobile-track-artist" title={displayArtist}>
-                {displayArtist}
+              <p className="cv-mobile-track-artist" title={artist}>
+                {artist}
               </p>
 
-              {/* Cloud & Format Pills */}
+              {/* Format & Size Pills */}
               <div className="cv-mobile-badge-row">
                 <span className="cv-mobile-format-badge">
                   <FileAudio size={11} />
@@ -267,12 +276,9 @@ export function MobileNowPlayingModal({
                 <span className="cv-mobile-format-badge">
                   <span>{formatBytes(file.size_bytes)}</span>
                 </span>
-                {file.provider_id && (
-                  <span className="cv-mobile-provider-badge">
-                    <HardDrive size={11} />
-                    <span>{file.provider_id.toUpperCase()}</span>
-                  </span>
-                )}
+                <span className="cv-mobile-format-badge" style={{ background: 'rgba(56, 189, 248, 0.15)', borderColor: 'rgba(56, 189, 248, 0.3)', color: '#38bdf8' }}>
+                  <span>Hi-Fi Audio</span>
+                </span>
               </div>
             </div>
 
@@ -476,11 +482,11 @@ export function MobileNowPlayingModal({
             </button>
           </div>
 
-          {/* Track Metadata & Cloud Credits Card (Image 4 & 5 inspired) */}
+          {/* Track Metadata Card */}
           <div className="cv-mobile-credits-card">
             <div className="cv-mobile-credits-header">
               <span style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>
-                Tentang Berkas & Kredit Cloud
+                Tentang Berkas & Informasi Metadata
               </span>
             </div>
 
@@ -491,11 +497,11 @@ export function MobileNowPlayingModal({
               </div>
               <div className="cv-mobile-credit-item">
                 <span className="label">Artis / Musisi</span>
-                <span className="val">{displayArtist}</span>
+                <span className="val">{artist}</span>
               </div>
               <div className="cv-mobile-credit-item">
                 <span className="label">Album</span>
-                <span className="val">{displayAlbum}</span>
+                <span className="val">{album}</span>
               </div>
               {metadata?.year && (
                 <div className="cv-mobile-credit-item">
@@ -504,18 +510,12 @@ export function MobileNowPlayingModal({
                 </div>
               )}
               <div className="cv-mobile-credit-item">
-                <span className="label">Penyimpanan Cloud</span>
-                <span className="val" style={{ textTransform: 'capitalize' }}>
-                  {file.provider_id || 'Lokal Drive'}
-                </span>
+                <span className="label">Format Berkas</span>
+                <span className="val">{file.mime_type || extension}</span>
               </div>
               <div className="cv-mobile-credit-item">
                 <span className="label">Ukuran Berkas</span>
                 <span className="val">{formatBytes(file.size_bytes)}</span>
-              </div>
-              <div className="cv-mobile-credit-item">
-                <span className="label">Format Berkas</span>
-                <span className="val">{file.mime_type || extension}</span>
               </div>
             </div>
           </div>
